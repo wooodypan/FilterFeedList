@@ -8,5 +8,8 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
+	<!-- 允许 App 作为客户端主动访问网络（如请求 Algolia 接口），缺此项会被沙盒拦截报 errno=1 -->
+	<key>com.apple.security.network.client</key>
+	<true/>
 </dict>
 </plist>
