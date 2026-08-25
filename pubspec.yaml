@@ -1,0 +1,68 @@
+name: filter_flow
+description: "漏斗阅读 FilterFlow - 可配置数据源的聚合信息流阅读器，支持自定义屏蔽词过滤。"
+# 私有项目，禁止意外发布到 pub.dev
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # ===== 状态管理：Riverpod 2.x（使用经典 API，不引入 riverpod_generator 代码生成，降低构建复杂度）=====
+  flutter_riverpod: ^2.5.1
+
+  # ===== 路由：声明式路由，支持 deep link 跳详情页 =====
+  go_router: ^14.2.7
+
+  # ===== 网络请求：拦截器机制方便统一请求头/签名/重试 =====
+  dio: ^5.4.3+1
+
+  # ===== 本地结构化存储（数据源配置、屏蔽词、缓存）=====
+  drift: ^2.19.0
+  sqlite3_flutter_libs: ^0.5.20
+  path_provider: ^2.1.3
+
+  # ===== 轻量 KV：全局开关类设置 =====
+  shared_preferences: ^2.2.3
+
+  # ===== 图片加载缓存：缩略图列表核心依赖 =====
+  cached_network_image: ^3.4.1
+
+  # ===== 详情页 WebView 模式 =====
+  webview_flutter: ^4.10.0
+
+  # ===== 详情页原生渲染模式（渲染 contentHtml 字段）=====
+  flutter_widget_from_html_core: ^0.15.2
+
+  # ===== 日志：便于调试第三方 API 解析失败 =====
+  logger: ^2.3.0
+
+  # ===== md5：屏蔽词去重的兜底 id 计算 =====
+  crypto: ^3.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^5.0.0
+
+  # ===== 代码生成 =====
+  build_runner: ^2.4.11
+  # 数据模型：freezed（自带 json_serializable 支持 fromJson/toJson）
+  freezed: ^2.5.5
+  freezed_annotation: ^2.4.4
+  json_serializable: ^6.8.0
+  # 数据库：drift 代码生成
+  drift_dev: ^2.19.0
+
+# 关于"dart_jsonpath"：本方案采用 spec 中的自研简化版 JsonPathResolver，
+# 只支持 a.b.c / a.b[0].c 语法，无需引入完整 JSONPath 库，更可控、性能更好。
+
+flutter:
+  uses-material-design: true
