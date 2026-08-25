@@ -46,6 +46,11 @@ dependencies:
   # ===== md5：屏蔽词去重的兜底 id 计算 =====
   crypto: ^3.0.3
 
+  # ===== 插件系统：JS 沙箱引擎（用户脚本用 buildRequest/parseResponse 两个纯函数）=====
+  # 选用 flutter_js 而非 flutter_qjs：后者最新版仅支持 Dart <3.0，与本项目的 Dart 3.7 不兼容。
+  # flutter_js 底层 Android=QuickJS / iOS=JavascriptCore，API 简洁、构建稳定。
+  flutter_js: ^0.8.7
+
   # ===== freezed / json_serializable 运行时注解（生成代码在运行时需要）=====
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0

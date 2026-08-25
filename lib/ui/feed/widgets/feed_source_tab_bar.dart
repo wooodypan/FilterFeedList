@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../../../models/data_source_config.dart';
+import '../../../services/feed_source.dart';
 
 /// 数据源 Tab 栏：每个启用的数据源对应一个标签。
 ///
 /// 源多时可横向滚动（isScrollable）。放在 DefaultTabController 下使用。
+/// 注意：参数是统一的 [FeedSource] 抽象（JSONPath 配置源 / JS 插件源都能用）。
 class FeedSourceTabBar extends StatelessWidget implements PreferredSizeWidget {
-  final List<DataSourceConfig> sources;
+  final List<FeedSource> sources;
 
   const FeedSourceTabBar({super.key, required this.sources});
 

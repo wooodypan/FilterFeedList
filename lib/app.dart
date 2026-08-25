@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'models/data_source_config.dart';
 import 'models/feed_article.dart';
+import 'services/feed_source.dart';
 import 'ui/detail/article_detail_page.dart';
 import 'ui/feed/feed_list_page.dart';
 import 'ui/settings/blocked_keyword_page.dart';
@@ -27,7 +28,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>;
           return ArticleDetailPage(
             article: extra['article'] as FeedArticle,
-            config: extra['config'] as DataSourceConfig,
+            source: extra['source'] as FeedSource,
           );
         },
       ),

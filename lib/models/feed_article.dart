@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 /// 一条信息流文章（运行时 DTO，不入库）。
 ///
 /// 由 [GenericFeedParser] 根据 DataSourceConfig 从 JSON 解析而来。
@@ -46,6 +50,16 @@ class FeedArticle {
   @override
   String toString() =>
       'FeedArticle(id: $id, title: $title, sourceId: $sourceId)';
+
+  /// 兜底 id：用"标题 + 缩略图"算 md5，保证同一条内容 id 稳定。
+  ///
+  /// 用在两种场景：
+  /// 1. 源数据没有天然 ID 字段（uniqueIdPath 为空）时给文章算 id；
+  /// 2. 插件返回的文章没给 id 时兜底（见 PluginArticle.fromJson）。
+  static String fallbackId(String title, String thumb) {
+    final bytes = utf8.encode('$title|$thumb');
+    return md5.convert(bytes).toString();
+  }
 
   /// 用 id 判断两条是否相同（多数据源聚合去重时用）
   @override

@@ -19,7 +19,7 @@ class SettingsPage extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.storage),
             title: const Text('数据源管理'),
-            subtitle: const Text('添加 / 编辑 API 与字段映射规则'),
+            subtitle: const Text('管理 API 数据源与已安装插件'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/sources'),
           ),

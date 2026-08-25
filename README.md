@@ -1,16 +1,142 @@
-# filter_flow
+# 漏斗阅读 · FilterFlow
 
-A new Flutter project.
+> 一款**可配置数据源**的聚合信息流阅读器。新增一个信息源**不需要写代码**——只要在设置里填一份字段映射规则，就能把任意返回 JSON 的 API 变成可读的信息流。
 
-## Getting Started
+[![Flutter](https://img.shields.io/badge/Flutter-3.7+-blue.svg)](https://flutter.dev)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-This project is a starting point for a Flutter application.
+---
 
-A few resources to get you started if this is your first Flutter project:
+## 这是什么
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+我们每天要在很多网站 / App 之间来回切换看资讯。漏斗阅读的想法很简单：把所有你想看的信息源**聚合到一个信息流里**，并且让你能**按自己的喜好过滤掉不想看的内容**。
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+它的核心能力是「通用数据源适配层」：不同平台的 API 返回的 JSON 结构千差万别（有的用 `res.data.list`、有的用 `data.items`、有的标题字段叫 `title`、有的叫 `name`）。漏斗阅读不要求你为每个 API 单独适配，而是用一份**路径映射规则**来描述「数组在哪、标题在哪、缩略图在哪」，即可自动解析。
+
+## 功能特性
+
+- **零代码接入新数据源**：可视化表单填写 API 地址 + 字段路径映射，保存即用。
+- **「测试连接并预览」**：填完映射规则后，立即请求一次并展示解析出的前几条，保存前就能验证规则对不对。
+- **屏蔽词过滤**：在设置里维护屏蔽词列表，信息流里命中关键词的内容直接不展示（过滤发生在数据层，分页、去重都绕不过）。
+- **详情页双模式**：
+  - **WebView 模式**——加载原文链接，适合「标题 + 跳转原文」型 API；
+  - **原生渲染模式**——用内置渲染器展示返回的 HTML 正文，无广告、可自定义样式、更流畅。
+- **两种信息流形态**：可把多个数据源**聚合**成一条时间线，也可按数据源**分 Tab** 分别浏览（设置里切换）。
+- **离线兜底**：网络失败时展示上一次成功解析的缓存内容并提示。
+- **首次启动内置示例源**（Hacker News），开箱即有内容可看。
+
+## 核心设计：用「路径映射」兼容任意 API
+
+不同数据源的差异，全部收敛到一份「字段映射规则」上：
+
+- **列表路径（绝对路径）**：告诉解析器从根 JSON 的哪个位置取出「文章数组」，例如 `data.list`。
+- **字段路径（相对路径）**：数组里每一项的标题、缩略图、摘要、作者、发布时间、正文等分别取哪个字段，例如 `title`、`images[0]`。
+- **详情渲染方式**：WebView 还是原生；以及详情链接字段或正文字段的路径。
+
+这套规则用免费的 `freezed` 模型持久化在本地数据库里，App 启动时加载，请求 API 后交给通用解析器按规则还原成统一的文章对象。
+
+## 快速开始
+
+### 环境要求
+
+- Flutter SDK `3.7+`（含 Dart）
+- 一台已连接的设备，或 Android / iOS 模拟器
+
+### 运行
+
+```bash
+# 拉取依赖
+flutter pub get
+
+# 启动应用（开发模式）
+flutter run
+```
+
+需要真机 AOT 构建产物时：
+
+```bash
+# 生成 debug APK
+flutter build apk --debug
+
+# 生成 release APK（需自行配置签名）
+flutter build apk --release
+```
+
+> 提示：若 Android 构建时遇到 NDK 版本告警，可在 `android/app/build.gradle.kts` 中指定 `ndkVersion = "27.0.12077973"`。
+
+## 如何添加一个新的数据源
+
+1. 打开「设置 → 数据源管理 → 新增数据源」。
+2. 填写**数据源名称**、**API 地址**（分页可用 `{page}` 占位符）。
+3. 展开「字段映射」，按 API 的实际返回结构填写：
+   - 列表路径：如 `data.list`
+   - 标题路径：如 `title`
+   - 缩略图路径：如 `thumb` 或 `images[0]`
+   - 其余（摘要 / 作者 / 发布时间 / 正文 / 详情链接）按需选填。
+4. 选择**详情渲染模式**（WebView / 原生）。
+5. 点击 **「测试连接并预览」**，确认列表里能正确解析出标题和缩略图。
+6. 保存，返回首页即可看到新数据源的内容。
+
+整个过程**不涉及任何代码改动**——这正是项目的设计初衷。
+
+## 项目架构
+
+采用清晰的分层结构，便于维护与二次开发：
+
+```
+lib/
+├── main.dart / app.dart          # 入口与路由
+├── core/                         # 基础设施：网络、数据库、异常
+│   ├── network/                  #   dio 客户端 + 自研 JSONPath 取值器
+│   ├── db/                       #   drift 本地数据库（数据源配置 / 屏蔽词）
+│   └── error/                    #   解析异常定义
+├── models/                       # 数据模型（freezed 定义）
+├── services/                     # 业务逻辑：解析 / 过滤 / 仓储组合
+├── providers/                    # Riverpod 状态管理
+├── ui/                           # 界面：信息流 / 详情 / 设置
+└── utils/                        # 校验等工具
+```
+
+数据流：`请求 API → 通用解析（按映射规则）→ 屏蔽词过滤 → 下发给 UI`，解析与过滤都集中在 service 层，UI 只负责展示。
+
+### 技术栈
+
+| 类别 | 选型 |
+|---|---|
+| 状态管理 | Riverpod 2.x（经典 API） |
+| 路由 | go_router |
+| 网络请求 | dio |
+| 本地存储 | drift（SQLite ORM）+ shared_preferences |
+| 图片加载 | cached_network_image |
+| 详情页 | webview_flutter / HTML 渲染器 |
+| 模型序列化 | freezed + json_serializable |
+| 数据库代码生成 | drift_dev + build_runner |
+
+> 说明：状态管理刻意采用 Riverpod 经典 API 而非 `riverpod_generator` 代码生成，以降低构建复杂度；详情页渲染使用自研轻量方案，避免过度依赖。
+
+## 路线图
+
+- [ ] 屏蔽词增强：支持正则表达式、整词匹配、命中高亮提示「已过滤 N 条」。
+- [ ] 缓存策略完善：离线阅读、下拉刷新与「已读」标记。
+- [ ] 多数据源聚合排序：按发布时间智能合并去重。
+- [ ] 导入 / 导出数据源配置（便于社区共享现成规则）。
+- [ ] 桌面端（Windows / macOS）适配。
+- [ ] 国际化（i18n）。
+
+## 贡献指南
+
+欢迎以 Issue / Pull Request 的形式参与贡献：
+
+1. Fork 本仓库并 clone 到本地。
+2. 创建特性分支：`git checkout -b feat/your-feature`。
+3. 保持代码风格一致，新增逻辑请补充单元测试（重点覆盖通用解析与过滤引擎）。
+4. 提交前请确保通过：
+   ```bash
+   flutter analyze
+   flutter test
+   ```
+5. 发起 Pull Request，描述清楚改动背景与验证方式。
+
+## 许可证
+
+本项目基于 [MIT License](LICENSE) 开源。

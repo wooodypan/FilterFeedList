@@ -579,11 +579,565 @@ class BlockedKeywordsCompanion extends UpdateCompanion<BlockedKeyword> {
   }
 }
 
+class $InstalledPluginsTable extends InstalledPlugins
+    with TableInfo<$InstalledPluginsTable, InstalledPluginsRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $InstalledPluginsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _scriptContentMeta = const VerificationMeta(
+    'scriptContent',
+  );
+  @override
+  late final GeneratedColumn<String> scriptContent = GeneratedColumn<String>(
+    'script_content',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _manifestJsonMeta = const VerificationMeta(
+    'manifestJson',
+  );
+  @override
+  late final GeneratedColumn<String> manifestJson = GeneratedColumn<String>(
+    'manifest_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _sourceUrlMeta = const VerificationMeta(
+    'sourceUrl',
+  );
+  @override
+  late final GeneratedColumn<String> sourceUrl = GeneratedColumn<String>(
+    'source_url',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _enabledMeta = const VerificationMeta(
+    'enabled',
+  );
+  @override
+  late final GeneratedColumn<bool> enabled = GeneratedColumn<bool>(
+    'enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
+  static const VerificationMeta _installedAtMeta = const VerificationMeta(
+    'installedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> installedAt = GeneratedColumn<DateTime>(
+    'installed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _versionMeta = const VerificationMeta(
+    'version',
+  );
+  @override
+  late final GeneratedColumn<String> version = GeneratedColumn<String>(
+    'version',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    name,
+    scriptContent,
+    manifestJson,
+    sourceUrl,
+    enabled,
+    installedAt,
+    version,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'installed_plugins';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<InstalledPluginsRow> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('script_content')) {
+      context.handle(
+        _scriptContentMeta,
+        scriptContent.isAcceptableOrUnknown(
+          data['script_content']!,
+          _scriptContentMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_scriptContentMeta);
+    }
+    if (data.containsKey('manifest_json')) {
+      context.handle(
+        _manifestJsonMeta,
+        manifestJson.isAcceptableOrUnknown(
+          data['manifest_json']!,
+          _manifestJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_manifestJsonMeta);
+    }
+    if (data.containsKey('source_url')) {
+      context.handle(
+        _sourceUrlMeta,
+        sourceUrl.isAcceptableOrUnknown(data['source_url']!, _sourceUrlMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_sourceUrlMeta);
+    }
+    if (data.containsKey('enabled')) {
+      context.handle(
+        _enabledMeta,
+        enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
+      );
+    }
+    if (data.containsKey('installed_at')) {
+      context.handle(
+        _installedAtMeta,
+        installedAt.isAcceptableOrUnknown(
+          data['installed_at']!,
+          _installedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_installedAtMeta);
+    }
+    if (data.containsKey('version')) {
+      context.handle(
+        _versionMeta,
+        version.isAcceptableOrUnknown(data['version']!, _versionMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_versionMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  InstalledPluginsRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return InstalledPluginsRow(
+      id:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}id'],
+          )!,
+      name:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}name'],
+          )!,
+      scriptContent:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}script_content'],
+          )!,
+      manifestJson:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}manifest_json'],
+          )!,
+      sourceUrl:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}source_url'],
+          )!,
+      enabled:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.bool,
+            data['${effectivePrefix}enabled'],
+          )!,
+      installedAt:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.dateTime,
+            data['${effectivePrefix}installed_at'],
+          )!,
+      version:
+          attachedDatabase.typeMapping.read(
+            DriftSqlType.string,
+            data['${effectivePrefix}version'],
+          )!,
+    );
+  }
+
+  @override
+  $InstalledPluginsTable createAlias(String alias) {
+    return $InstalledPluginsTable(attachedDatabase, alias);
+  }
+}
+
+class InstalledPluginsRow extends DataClass
+    implements Insertable<InstalledPluginsRow> {
+  /// 插件唯一 id（来自 manifest 的 @id，主键）
+  final String id;
+
+  /// 展示名称
+  final String name;
+
+  /// 完整 JS 源码（本地持久化）
+  final String scriptContent;
+
+  /// 解析出的 manifest（JSON 字符串）
+  final String manifestJson;
+
+  /// 安装来源 URL（用于"检查更新"时重新拉取比对版本）
+  final String sourceUrl;
+
+  /// 是否启用（关闭后不参与信息流）
+  final bool enabled;
+
+  /// 安装时间
+  final DateTime installedAt;
+
+  /// 版本号
+  final String version;
+  const InstalledPluginsRow({
+    required this.id,
+    required this.name,
+    required this.scriptContent,
+    required this.manifestJson,
+    required this.sourceUrl,
+    required this.enabled,
+    required this.installedAt,
+    required this.version,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['script_content'] = Variable<String>(scriptContent);
+    map['manifest_json'] = Variable<String>(manifestJson);
+    map['source_url'] = Variable<String>(sourceUrl);
+    map['enabled'] = Variable<bool>(enabled);
+    map['installed_at'] = Variable<DateTime>(installedAt);
+    map['version'] = Variable<String>(version);
+    return map;
+  }
+
+  InstalledPluginsCompanion toCompanion(bool nullToAbsent) {
+    return InstalledPluginsCompanion(
+      id: Value(id),
+      name: Value(name),
+      scriptContent: Value(scriptContent),
+      manifestJson: Value(manifestJson),
+      sourceUrl: Value(sourceUrl),
+      enabled: Value(enabled),
+      installedAt: Value(installedAt),
+      version: Value(version),
+    );
+  }
+
+  factory InstalledPluginsRow.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return InstalledPluginsRow(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      scriptContent: serializer.fromJson<String>(json['scriptContent']),
+      manifestJson: serializer.fromJson<String>(json['manifestJson']),
+      sourceUrl: serializer.fromJson<String>(json['sourceUrl']),
+      enabled: serializer.fromJson<bool>(json['enabled']),
+      installedAt: serializer.fromJson<DateTime>(json['installedAt']),
+      version: serializer.fromJson<String>(json['version']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'scriptContent': serializer.toJson<String>(scriptContent),
+      'manifestJson': serializer.toJson<String>(manifestJson),
+      'sourceUrl': serializer.toJson<String>(sourceUrl),
+      'enabled': serializer.toJson<bool>(enabled),
+      'installedAt': serializer.toJson<DateTime>(installedAt),
+      'version': serializer.toJson<String>(version),
+    };
+  }
+
+  InstalledPluginsRow copyWith({
+    String? id,
+    String? name,
+    String? scriptContent,
+    String? manifestJson,
+    String? sourceUrl,
+    bool? enabled,
+    DateTime? installedAt,
+    String? version,
+  }) => InstalledPluginsRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    scriptContent: scriptContent ?? this.scriptContent,
+    manifestJson: manifestJson ?? this.manifestJson,
+    sourceUrl: sourceUrl ?? this.sourceUrl,
+    enabled: enabled ?? this.enabled,
+    installedAt: installedAt ?? this.installedAt,
+    version: version ?? this.version,
+  );
+  InstalledPluginsRow copyWithCompanion(InstalledPluginsCompanion data) {
+    return InstalledPluginsRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      scriptContent:
+          data.scriptContent.present
+              ? data.scriptContent.value
+              : this.scriptContent,
+      manifestJson:
+          data.manifestJson.present
+              ? data.manifestJson.value
+              : this.manifestJson,
+      sourceUrl: data.sourceUrl.present ? data.sourceUrl.value : this.sourceUrl,
+      enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      installedAt:
+          data.installedAt.present ? data.installedAt.value : this.installedAt,
+      version: data.version.present ? data.version.value : this.version,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InstalledPluginsRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('scriptContent: $scriptContent, ')
+          ..write('manifestJson: $manifestJson, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('enabled: $enabled, ')
+          ..write('installedAt: $installedAt, ')
+          ..write('version: $version')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    name,
+    scriptContent,
+    manifestJson,
+    sourceUrl,
+    enabled,
+    installedAt,
+    version,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is InstalledPluginsRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.scriptContent == this.scriptContent &&
+          other.manifestJson == this.manifestJson &&
+          other.sourceUrl == this.sourceUrl &&
+          other.enabled == this.enabled &&
+          other.installedAt == this.installedAt &&
+          other.version == this.version);
+}
+
+class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> scriptContent;
+  final Value<String> manifestJson;
+  final Value<String> sourceUrl;
+  final Value<bool> enabled;
+  final Value<DateTime> installedAt;
+  final Value<String> version;
+  final Value<int> rowid;
+  const InstalledPluginsCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.scriptContent = const Value.absent(),
+    this.manifestJson = const Value.absent(),
+    this.sourceUrl = const Value.absent(),
+    this.enabled = const Value.absent(),
+    this.installedAt = const Value.absent(),
+    this.version = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  InstalledPluginsCompanion.insert({
+    required String id,
+    required String name,
+    required String scriptContent,
+    required String manifestJson,
+    required String sourceUrl,
+    this.enabled = const Value.absent(),
+    required DateTime installedAt,
+    required String version,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       scriptContent = Value(scriptContent),
+       manifestJson = Value(manifestJson),
+       sourceUrl = Value(sourceUrl),
+       installedAt = Value(installedAt),
+       version = Value(version);
+  static Insertable<InstalledPluginsRow> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? scriptContent,
+    Expression<String>? manifestJson,
+    Expression<String>? sourceUrl,
+    Expression<bool>? enabled,
+    Expression<DateTime>? installedAt,
+    Expression<String>? version,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (scriptContent != null) 'script_content': scriptContent,
+      if (manifestJson != null) 'manifest_json': manifestJson,
+      if (sourceUrl != null) 'source_url': sourceUrl,
+      if (enabled != null) 'enabled': enabled,
+      if (installedAt != null) 'installed_at': installedAt,
+      if (version != null) 'version': version,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  InstalledPluginsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? scriptContent,
+    Value<String>? manifestJson,
+    Value<String>? sourceUrl,
+    Value<bool>? enabled,
+    Value<DateTime>? installedAt,
+    Value<String>? version,
+    Value<int>? rowid,
+  }) {
+    return InstalledPluginsCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      scriptContent: scriptContent ?? this.scriptContent,
+      manifestJson: manifestJson ?? this.manifestJson,
+      sourceUrl: sourceUrl ?? this.sourceUrl,
+      enabled: enabled ?? this.enabled,
+      installedAt: installedAt ?? this.installedAt,
+      version: version ?? this.version,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (scriptContent.present) {
+      map['script_content'] = Variable<String>(scriptContent.value);
+    }
+    if (manifestJson.present) {
+      map['manifest_json'] = Variable<String>(manifestJson.value);
+    }
+    if (sourceUrl.present) {
+      map['source_url'] = Variable<String>(sourceUrl.value);
+    }
+    if (enabled.present) {
+      map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (installedAt.present) {
+      map['installed_at'] = Variable<DateTime>(installedAt.value);
+    }
+    if (version.present) {
+      map['version'] = Variable<String>(version.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('InstalledPluginsCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('scriptContent: $scriptContent, ')
+          ..write('manifestJson: $manifestJson, ')
+          ..write('sourceUrl: $sourceUrl, ')
+          ..write('enabled: $enabled, ')
+          ..write('installedAt: $installedAt, ')
+          ..write('version: $version, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $DataSourcesTable dataSources = $DataSourcesTable(this);
   late final $BlockedKeywordsTable blockedKeywords = $BlockedKeywordsTable(
+    this,
+  );
+  late final $InstalledPluginsTable installedPlugins = $InstalledPluginsTable(
     this,
   );
   @override
@@ -593,6 +1147,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     dataSources,
     blockedKeywords,
+    installedPlugins,
   ];
 }
 
@@ -962,6 +1517,293 @@ typedef $$BlockedKeywordsTableProcessedTableManager =
       BlockedKeyword,
       PrefetchHooks Function()
     >;
+typedef $$InstalledPluginsTableCreateCompanionBuilder =
+    InstalledPluginsCompanion Function({
+      required String id,
+      required String name,
+      required String scriptContent,
+      required String manifestJson,
+      required String sourceUrl,
+      Value<bool> enabled,
+      required DateTime installedAt,
+      required String version,
+      Value<int> rowid,
+    });
+typedef $$InstalledPluginsTableUpdateCompanionBuilder =
+    InstalledPluginsCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> scriptContent,
+      Value<String> manifestJson,
+      Value<String> sourceUrl,
+      Value<bool> enabled,
+      Value<DateTime> installedAt,
+      Value<String> version,
+      Value<int> rowid,
+    });
+
+class $$InstalledPluginsTableFilterComposer
+    extends Composer<_$AppDatabase, $InstalledPluginsTable> {
+  $$InstalledPluginsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get scriptContent => $composableBuilder(
+    column: $table.scriptContent,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get manifestJson => $composableBuilder(
+    column: $table.manifestJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get installedAt => $composableBuilder(
+    column: $table.installedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get version => $composableBuilder(
+    column: $table.version,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$InstalledPluginsTableOrderingComposer
+    extends Composer<_$AppDatabase, $InstalledPluginsTable> {
+  $$InstalledPluginsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get scriptContent => $composableBuilder(
+    column: $table.scriptContent,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get manifestJson => $composableBuilder(
+    column: $table.manifestJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get sourceUrl => $composableBuilder(
+    column: $table.sourceUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get enabled => $composableBuilder(
+    column: $table.enabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get installedAt => $composableBuilder(
+    column: $table.installedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get version => $composableBuilder(
+    column: $table.version,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$InstalledPluginsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $InstalledPluginsTable> {
+  $$InstalledPluginsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get scriptContent => $composableBuilder(
+    column: $table.scriptContent,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get manifestJson => $composableBuilder(
+    column: $table.manifestJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sourceUrl =>
+      $composableBuilder(column: $table.sourceUrl, builder: (column) => column);
+
+  GeneratedColumn<bool> get enabled =>
+      $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get installedAt => $composableBuilder(
+    column: $table.installedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get version =>
+      $composableBuilder(column: $table.version, builder: (column) => column);
+}
+
+class $$InstalledPluginsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $InstalledPluginsTable,
+          InstalledPluginsRow,
+          $$InstalledPluginsTableFilterComposer,
+          $$InstalledPluginsTableOrderingComposer,
+          $$InstalledPluginsTableAnnotationComposer,
+          $$InstalledPluginsTableCreateCompanionBuilder,
+          $$InstalledPluginsTableUpdateCompanionBuilder,
+          (
+            InstalledPluginsRow,
+            BaseReferences<
+              _$AppDatabase,
+              $InstalledPluginsTable,
+              InstalledPluginsRow
+            >,
+          ),
+          InstalledPluginsRow,
+          PrefetchHooks Function()
+        > {
+  $$InstalledPluginsTableTableManager(
+    _$AppDatabase db,
+    $InstalledPluginsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer:
+              () =>
+                  $$InstalledPluginsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer:
+              () => $$InstalledPluginsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer:
+              () => $$InstalledPluginsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> scriptContent = const Value.absent(),
+                Value<String> manifestJson = const Value.absent(),
+                Value<String> sourceUrl = const Value.absent(),
+                Value<bool> enabled = const Value.absent(),
+                Value<DateTime> installedAt = const Value.absent(),
+                Value<String> version = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => InstalledPluginsCompanion(
+                id: id,
+                name: name,
+                scriptContent: scriptContent,
+                manifestJson: manifestJson,
+                sourceUrl: sourceUrl,
+                enabled: enabled,
+                installedAt: installedAt,
+                version: version,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required String scriptContent,
+                required String manifestJson,
+                required String sourceUrl,
+                Value<bool> enabled = const Value.absent(),
+                required DateTime installedAt,
+                required String version,
+                Value<int> rowid = const Value.absent(),
+              }) => InstalledPluginsCompanion.insert(
+                id: id,
+                name: name,
+                scriptContent: scriptContent,
+                manifestJson: manifestJson,
+                sourceUrl: sourceUrl,
+                enabled: enabled,
+                installedAt: installedAt,
+                version: version,
+                rowid: rowid,
+              ),
+          withReferenceMapper:
+              (p0) =>
+                  p0
+                      .map(
+                        (e) => (
+                          e.readTable(table),
+                          BaseReferences(db, table, e),
+                        ),
+                      )
+                      .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$InstalledPluginsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $InstalledPluginsTable,
+      InstalledPluginsRow,
+      $$InstalledPluginsTableFilterComposer,
+      $$InstalledPluginsTableOrderingComposer,
+      $$InstalledPluginsTableAnnotationComposer,
+      $$InstalledPluginsTableCreateCompanionBuilder,
+      $$InstalledPluginsTableUpdateCompanionBuilder,
+      (
+        InstalledPluginsRow,
+        BaseReferences<
+          _$AppDatabase,
+          $InstalledPluginsTable,
+          InstalledPluginsRow
+        >,
+      ),
+      InstalledPluginsRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -970,4 +1812,6 @@ class $AppDatabaseManager {
       $$DataSourcesTableTableManager(_db, _db.dataSources);
   $$BlockedKeywordsTableTableManager get blockedKeywords =>
       $$BlockedKeywordsTableTableManager(_db, _db.blockedKeywords);
+  $$InstalledPluginsTableTableManager get installedPlugins =>
+      $$InstalledPluginsTableTableManager(_db, _db.installedPlugins);
 }

@@ -1,7 +1,3 @@
-import 'dart:convert';
-
-import 'package:crypto/crypto.dart';
-
 import '../core/error/feed_parse_exception.dart';
 import '../core/network/json_path_resolver.dart';
 import '../models/data_source_config.dart';
@@ -50,7 +46,7 @@ class GenericFeedParser {
       // id 优先取 uniqueIdPath，否则用 title+thumb 兜底算 md5
       final id = mapping.uniqueIdPath != null
           ? JsonPathResolver.resolveAsString(item, mapping.uniqueIdPath)
-          : _fallbackId(title, thumb);
+          : FeedArticle.fallbackId(title, thumb);
 
       return FeedArticle(
         id: id,
@@ -80,11 +76,5 @@ class GenericFeedParser {
     if (v is String) return v;
     if (v is List && v.isNotEmpty) return v.first.toString();
     return '';
-  }
-
-  /// 兜底 id：用 title + thumb 算 md5，保证同一条内容 id 稳定（去重/已读用）。
-  static String _fallbackId(String title, String thumb) {
-    final bytes = utf8.encode('$title|$thumb');
-    return md5.convert(bytes).toString();
   }
 }

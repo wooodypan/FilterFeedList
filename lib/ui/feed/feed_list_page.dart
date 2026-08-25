@@ -2,18 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../models/data_source_config.dart';
 import '../../models/feed_article.dart';
-import '../../providers/data_source_provider.dart';
 import '../../providers/feed_list_provider.dart';
 import '../../providers/feed_settings_provider.dart';
+import '../../services/feed_source.dart';
 import 'widgets/feed_item_card.dart';
 import 'widgets/feed_source_tab_bar.dart';
 
 /// 聚合信息流主页。
 ///
 /// 根据设置切换两种形态：
-/// - 聚合模式：所有启用源混成一条流（feedAggregateProvider）
+/// - 聚合模式：所有启用源（JSONPath + JS 插件）混成一条流（feedAggregateProvider）
 /// - 分源 Tab 模式：每个源一个 Tab（feedTabProvider）
 class FeedListPage extends ConsumerWidget {
   const FeedListPage({super.key});
@@ -21,7 +20,7 @@ class FeedListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(feedSettingsProvider);
-    final sourcesAsync = ref.watch(dataSourcesProvider);
+    final sources = ref.watch(allFeedSourcesProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -34,20 +33,17 @@ class FeedListPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: sourcesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('加载数据源失败：$e')),
-        data: (sources) {
-          final enabled = sources.where((s) => s.enabled).toList();
-          if (enabled.isEmpty) {
+      body: Builder(
+        builder: (context) {
+          if (sources.isEmpty) {
             return const Center(
-              child: Text('还没有启用任何数据源，去"设置 → 数据源管理"添加吧'),
+              child: Text('还没有启用任何数据源，去"设置"添加或安装插件吧'),
             );
           }
           // 按设置选择聚合 / 分 Tab
           return settings.aggregateMode
-              ? _AggregateFeedView(sources: enabled)
-              : _TabbedFeedView(sources: enabled);
+              ? _AggregateFeedView(sources: sources)
+              : _TabbedFeedView(sources: sources);
         },
       ),
     );
@@ -56,7 +52,7 @@ class FeedListPage extends ConsumerWidget {
 
 /// 聚合模式：单一信息流
 class _AggregateFeedView extends ConsumerWidget {
-  final List<DataSourceConfig> sources;
+  final List<FeedSource> sources;
   const _AggregateFeedView({required this.sources});
 
   @override
@@ -68,7 +64,7 @@ class _AggregateFeedView extends ConsumerWidget {
       showThumb: showThumb,
       onRefresh: () => ref.read(feedAggregateProvider.notifier).loadInitial(),
       onLoadMore: () => ref.read(feedAggregateProvider.notifier).loadMore(),
-      // 聚合模式下文章可能来自不同源，打开详情时按 sourceId 反查配置
+      // 聚合模式下文章可能来自不同源，打开详情时按 sourceId 反查
       sourceConfig: null,
     );
   }
@@ -76,7 +72,7 @@ class _AggregateFeedView extends ConsumerWidget {
 
 /// 分源 Tab 模式：每个源一个 Tab
 class _TabbedFeedView extends StatelessWidget {
-  final List<DataSourceConfig> sources;
+  final List<FeedSource> sources;
   const _TabbedFeedView({required this.sources});
 
   @override
@@ -89,7 +85,7 @@ class _TabbedFeedView extends StatelessWidget {
           Expanded(
             child: TabBarView(
               children: sources
-                  .map((s) => _SingleSourceFeedView(config: s))
+                  .map((s) => _SingleSourceFeedView(source: s))
                   .toList(),
             ),
           ),
@@ -101,21 +97,21 @@ class _TabbedFeedView extends StatelessWidget {
 
 /// 单个源 Tab 的内容
 class _SingleSourceFeedView extends ConsumerWidget {
-  final DataSourceConfig config;
-  const _SingleSourceFeedView({required this.config});
+  final FeedSource source;
+  const _SingleSourceFeedView({required this.source});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(feedTabProvider(config));
+    final state = ref.watch(feedTabProvider(source));
     final showThumb = ref.watch(feedSettingsProvider).showThumb;
     return _FeedListView(
       state: state,
       showThumb: showThumb,
       onRefresh: () =>
-          ref.read(feedTabProvider(config).notifier).loadInitial(),
-      onLoadMore: () => ref.read(feedTabProvider(config).notifier).loadMore(),
-      // 单源模式下配置已知，直接传给详情页
-      sourceConfig: config,
+          ref.read(feedTabProvider(source).notifier).loadInitial(),
+      onLoadMore: () => ref.read(feedTabProvider(source).notifier).loadMore(),
+      // 单源模式下源已知，直接传给详情页
+      sourceConfig: source,
     );
   }
 }
@@ -126,8 +122,7 @@ class _FeedListView extends ConsumerStatefulWidget {
   final bool showThumb;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onLoadMore;
-  final DataSourceConfig? sourceConfig; // 已知配置就直接用它，否则按 sourceId 反查
-
+  final FeedSource? sourceConfig; // 已知源就直接用它，否则按 sourceId 反查
   const _FeedListView({
     required this.state,
     required this.showThumb,
@@ -235,14 +230,15 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
     );
   }
 
-  /// 打开详情页：优先用已知配置，否则按 sourceId 在已加载数据源里反查。
+  /// 打开详情页：优先用已知源，否则按 sourceId 在已加载的数据源里反查。
+  /// 这里用的是统一的 [FeedSource]（JSONPath 配置源 / JS 插件源都能传）。
   void _openDetail(BuildContext context, FeedArticle article) {
-    DataSourceConfig? config = widget.sourceConfig;
-    if (config == null) {
-      final sources = ref.read(dataSourcesProvider).valueOrNull ?? [];
-      config = sources.where((c) => c.id == article.sourceId).firstOrNull;
+    FeedSource? source = widget.sourceConfig;
+    if (source == null) {
+      final sources = ref.read(allFeedSourcesProvider);
+      source = sources.where((s) => s.id == article.sourceId).firstOrNull;
     }
-    if (config == null) return;
-    context.push('/detail', extra: {'article': article, 'config': config});
+    if (source == null) return;
+    context.push('/detail', extra: {'article': article, 'source': source});
   }
 }

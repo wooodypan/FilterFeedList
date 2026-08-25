@@ -1,10 +1,11 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../models/data_source_config.dart';
 import '../models/feed_article.dart';
-import '../services/feed_repository.dart';
+import '../plugin/plugin_feed_source.dart';
+import '../services/feed_source.dart';
 import 'core_providers.dart';
 import 'data_source_provider.dart';
+import 'plugin_provider.dart';
 
 /// 信息流页的状态数据。
 class FeedState {
@@ -40,36 +41,51 @@ class FeedState {
   }
 }
 
-/// 单个数据源的 Tab 信息流（按 sourceId 区分实例）。
-/// key 用 DataSourceConfig 本身：配置被改了 -> 对象变了 -> 自动重建并重新拉取。
+/// 把所有"启用中"的数据源汇总成统一的 [FeedSource] 列表：
+/// - JSONPath 声明式配置 → [JsonPathFeedSource]
+/// - 已安装的 JS 插件 → [JsPluginFeedSource]
+///
+/// UI 和 FeedNotifier 只认 [FeedSource]，从而两套体系无缝并存。
+final allFeedSourcesProvider = Provider<List<FeedSource>>((ref) {
+  final configs = ref.watch(dataSourcesProvider).valueOrNull ?? [];
+  final plugins = ref.watch(installedPluginsProvider).valueOrNull ?? [];
+  final repo = ref.watch(feedRepositoryProvider);
+  final pluginRepo = ref.watch(pluginFeedRepositoryProvider);
+
+  return [
+    ...configs
+        .where((c) => c.enabled)
+        .map((c) => JsonPathFeedSource(config: c, repo: repo)),
+    ...plugins
+        .where((p) => p.enabled)
+        .map((p) => JsPluginFeedSource(plugin: p, repo: pluginRepo)),
+  ];
+});
+
+/// 单个数据源的 Tab 信息流（按 FeedSource 区分实例）。
+/// key 用 FeedSource 本身：底层配置/脚本被改了 -> 对象变了 -> 自动重建并重新拉取。
 final feedTabProvider =
-    StateNotifierProvider.family<FeedNotifier, FeedState, DataSourceConfig>(
-  (ref, config) =>
-      FeedNotifier(ref.watch(feedRepositoryProvider), [config]),
+    StateNotifierProvider.family<FeedNotifier, FeedState, FeedSource>(
+  (ref, source) => FeedNotifier([source]),
 );
 
-/// 聚合模式的信息流：合并所有启用数据源。
-/// 非 family 的普通 provider，依赖 dataSourcesProvider，
-/// 数据源增删改后会自动重建并重新拉取。
+/// 聚合模式的信息流：合并所有启用的数据源（JSONPath + JS 插件）。
+/// 非 family 的普通 provider，依赖 allFeedSourcesProvider，
+/// 任意数据源增删改 / 插件安装卸载后都会自动重建并重新拉取。
 final feedAggregateProvider = StateNotifierProvider<FeedNotifier, FeedState>(
-  (ref) {
-    final repo = ref.watch(feedRepositoryProvider);
-    final sources = ref.watch(dataSourcesProvider).valueOrNull ?? [];
-    return FeedNotifier(repo, sources.where((s) => s.enabled).toList());
-  },
+  (ref) => FeedNotifier(ref.watch(allFeedSourcesProvider)),
 );
 
 /// 信息流状态机：负责"首次加载 / 上拉加载更多 / 多源合并去重"。
 class FeedNotifier extends StateNotifier<FeedState> {
-  final FeedRepository _repo;
-  final List<DataSourceConfig> _sources;
+  final List<FeedSource> _sources;
   final Map<String, int> _pages = {}; // 每个源当前加载到第几页
 
-  FeedNotifier(this._repo, this._sources) : super(const FeedState()) {
+  FeedNotifier(this._sources) : super(const FeedState()) {
     for (final s in _sources) {
       _pages[s.id] = 1;
     }
-    // 有源才自动加载；没源（比如聚合模式但全部关闭）就保持空
+    // 有源才自动加载；没源（比如全关了）就保持空
     if (_sources.isNotEmpty) {
       loadInitial();
     }
@@ -81,7 +97,7 @@ class FeedNotifier extends StateNotifier<FeedState> {
     try {
       final all = <FeedArticle>[];
       for (final s in _sources) {
-        final list = await _repo.fetchFeed(s, page: 1);
+        final list = await s.fetchFeed(page: 1);
         _pages[s.id] = 2; // 下一页从 2 开始
         all.addAll(list);
       }
@@ -104,7 +120,7 @@ class FeedNotifier extends StateNotifier<FeedState> {
       final more = <FeedArticle>[];
       for (final s in _sources) {
         final p = _pages[s.id] ?? 1;
-        final list = await _repo.fetchFeed(s, page: p);
+        final list = await s.fetchFeed(page: p);
         _pages[s.id] = p + 1;
         more.addAll(list);
       }

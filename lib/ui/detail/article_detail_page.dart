@@ -4,20 +4,23 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../models/data_source_config.dart';
 import '../../models/feed_article.dart';
+import '../../services/feed_source.dart';
 
 /// 文章详情页。
 ///
 /// 根据数据源的 detailMode 决定渲染方式：
 /// - webview：用 WebView 加载详情链接（适合"标题+跳转原文"型 API）
 /// - native：用原生 Widget 渲染正文 HTML（适合返回完整正文的 API）
+///
+/// 参数用统一的 [FeedSource] 抽象：JSONPath 配置源和 JS 插件源都能打开详情。
 class ArticleDetailPage extends StatelessWidget {
   final FeedArticle article;
-  final DataSourceConfig config;
+  final FeedSource source;
 
   const ArticleDetailPage({
     super.key,
     required this.article,
-    required this.config,
+    required this.source,
   });
 
   @override
@@ -30,7 +33,7 @@ class ArticleDetailPage extends StatelessWidget {
           overflow: TextOverflow.ellipsis,
         ),
       ),
-      body: config.detailMode == DetailRenderMode.webview
+      body: source.detailMode == DetailRenderMode.webview
           ? _WebViewBody(url: article.detailUrl)
           : _NativeBody(html: article.contentHtml),
     );

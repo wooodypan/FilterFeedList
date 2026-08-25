@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:filter_flow/core/network/json_path_resolver.dart';
 import 'package:filter_flow/models/data_source_config.dart';
 import 'package:filter_flow/models/field_mapping.dart';
+import 'package:filter_flow/plugin/plugin_downloader.dart';
 import 'package:filter_flow/services/generic_feed_parser.dart';
 
 /// 单元测试：重点覆盖通用解析引擎（spec 九-5 建议）。
@@ -81,6 +82,39 @@ void main() {
       );
       final json = {'data': {'wrong': 'not a list'}};
       expect(() => GenericFeedParser.parse(json, config), throwsA(isA<Exception>()));
+    });
+  });
+
+  group('PluginDownloader.validateScript', () {
+    // 一份结构正确、包含两个核心函数的脚本
+    const okScript = '''
+// ==UserScript==
+// @id demo
+// @name Demo
+// ==/UserScript==
+function buildRequest() { return {}; }
+function parseResponse(s) { return []; }
+''';
+
+    test('合法脚本不抛异常', () {
+      expect(() => PluginDownloader.validateScript(okScript), returnsNormally);
+    });
+
+    test('空脚本抛异常', () {
+      expect(
+        () => PluginDownloader.validateScript('   '),
+        throwsA(isA<PluginDownloadException>()),
+      );
+    });
+
+    test('缺少 parseResponse 抛异常', () {
+      const broken = '''
+function buildRequest() { return {}; }
+''';
+      expect(
+        () => PluginDownloader.validateScript(broken),
+        throwsA(isA<PluginDownloadException>()),
+      );
     });
   });
 }
