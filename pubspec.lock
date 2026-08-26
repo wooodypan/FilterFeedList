@@ -217,6 +217,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.0.8"
+  dart_jieba:
+    dependency: "direct main"
+    description:
+      name: dart_jieba
+      sha256: "54f892c7319dd1f7131220b78a61033141c3ef63e5c5d7ac2d408cb81f028ed3"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.1"
   dart_style:
     dependency: transitive
     description:

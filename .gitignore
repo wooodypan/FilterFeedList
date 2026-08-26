@@ -43,3 +43,9 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+devtools_options.yaml
+
+# ===== 中文分词词典：不入库 =====
+# dict.dgz 是 1.9MB 二进制，由初始化脚本从 dart_jieba 依赖包复制生成
+# （见 tools/fetch_dict.dart / setup.sh），克隆后执行一次 setup.sh 即可。
+assets/dict.dgz

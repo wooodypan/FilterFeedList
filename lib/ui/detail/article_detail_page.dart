@@ -57,10 +57,17 @@ class _WebViewBodyState extends State<_WebViewBody> {
   void initState() {
     super.initState();
     _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted);
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      // 伪装成 iPhone Safari 的 User-Agent，让网页按 iOS 移动端布局渲染
+      ..setUserAgent(
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1');
     final url = widget.url;
     if (url != null && url.isNotEmpty) {
-      _controller.loadRequest(Uri.parse(url));
+      // 带上 Accept-Language，告诉服务器优先返回中文内容
+      _controller.loadRequest(
+        Uri.parse(url),
+        headers: {'Accept-Language': 'zh-CN,zh-Hans;q=0.9'},
+      );
     }
   }
 

@@ -18,6 +18,7 @@
 - **零代码接入新数据源**：可视化表单填写 API 地址 + 字段路径映射，保存即用。
 - **「测试连接并预览」**：填完映射规则后，立即请求一次并展示解析出的前几条，保存前就能验证规则对不对。
 - **屏蔽词过滤**：在设置里维护屏蔽词列表，信息流里命中关键词的内容直接不展示（过滤发生在数据层，分页、去重都绕不过）。
+- **文字大爆炸（长按标题加屏蔽词）**：在信息流卡片标题上**长按**，会把标题分词炸成一块块词，按住滑动即可多选，一键批量加入屏蔽词；弹层里还有输入框，可直接敲入想屏蔽的词。
 - **详情页双模式**：
   - **WebView 模式**——加载原文链接，适合「标题 + 跳转原文」型 API；
   - **原生渲染模式**——用内置渲染器展示返回的 HTML 正文，无广告、可自定义样式、更流畅。
@@ -45,12 +46,14 @@
 ### 运行
 
 ```bash
-# 拉取依赖
-flutter pub get
+# 初始化（首次克隆后执行一次）：拉取依赖，并把分词词典复制到 assets/
+./setup.sh
 
 # 启动应用（开发模式）
 flutter run
 ```
+
+> 说明：`assets/dict.dgz` 是 `dart_jieba` 的中文分词词典（约 1.9MB），**不纳入 git 仓库**。它由 `setup.sh` 从本地已安装的 `dart_jieba` 依赖包自动复制到 `assets/`，无需联网。若跳过初始化直接 `flutter run`，文字大爆炸功能会退化为逐字切分（不影响其它功能）。Windows 用户请用 Git Bash 运行 `setup.sh`，或手动执行 `flutter pub get` 后 `dart run tools/fetch_dict.dart`。
 
 需要真机 AOT 构建产物时：
 
@@ -101,16 +104,16 @@ lib/
 
 ### 技术栈
 
-| 类别 | 选型 |
-|---|---|
-| 状态管理 | Riverpod 2.x（经典 API） |
-| 路由 | go_router |
-| 网络请求 | dio |
-| 本地存储 | drift（SQLite ORM）+ shared_preferences |
-| 图片加载 | cached_network_image |
-| 详情页 | webview_flutter / HTML 渲染器 |
-| 模型序列化 | freezed + json_serializable |
-| 数据库代码生成 | drift_dev + build_runner |
+| 类别           | 选型                                    |
+| -------------- | --------------------------------------- |
+| 状态管理       | Riverpod 2.x（经典 API）                |
+| 路由           | go_router                               |
+| 网络请求       | dio                                     |
+| 本地存储       | drift（SQLite ORM）+ shared_preferences |
+| 图片加载       | cached_network_image                    |
+| 详情页         | webview_flutter / HTML 渲染器           |
+| 模型序列化     | freezed + json_serializable             |
+| 数据库代码生成 | drift_dev + build_runner                |
 
 > 说明：状态管理刻意采用 Riverpod 经典 API 而非 `riverpod_generator` 代码生成，以降低构建复杂度；详情页渲染使用自研轻量方案，避免过度依赖。
 

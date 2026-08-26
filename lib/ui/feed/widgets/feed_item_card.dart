@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../models/feed_article.dart';
+import '../text_explosion_sheet.dart';
 
 /// 信息流里的单条卡片：左侧缩略图 + 右侧标题/摘要/元信息。
 class FeedItemCard extends StatelessWidget {
@@ -38,11 +39,19 @@ class FeedItemCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      article.title,
-                      style: theme.textTheme.titleMedium,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    // 标题：支持「长按」触发文字大爆炸（分词 + 滑动选词加屏蔽词）。
+                    // 普通点击仍由外层 InkWell 打开详情，两者不冲突。
+                    GestureDetector(
+                      // 让整块文字区域（含省略号区域）都能响应长按
+                      behavior: HitTestBehavior.opaque,
+                      onLongPress: () =>
+                          TextExplosionSheet.show(context, article.title),
+                      child: Text(
+                        article.title,
+                        style: theme.textTheme.titleMedium,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     if (article.summary?.isNotEmpty == true) ...[
                       const SizedBox(height: 6),
