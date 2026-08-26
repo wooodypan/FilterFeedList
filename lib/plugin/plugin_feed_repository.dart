@@ -77,12 +77,13 @@ class PluginFeedRepository {
     }
 
     // 单条解析失败（畸形数据）直接跳过，不让整个信息流崩掉
-    final articles = articlesRaw
-        .whereType<Map<String, dynamic>>()
-        .map((e) => PluginArticle.fromJson(e, plugin.id))
-        .whereType<PluginArticle>()
-        .map((a) => a.toFeedArticle(plugin.id))
-        .toList();
+    final articles =
+        articlesRaw
+            .whereType<Map<String, dynamic>>()
+            .map((e) => PluginArticle.fromJson(e, plugin.id))
+            .whereType<PluginArticle>()
+            .map((a) => a.toFeedArticle(plugin.id))
+            .toList();
 
     // ---- 阶段 4：屏蔽词过滤（和 JSONPath 数据源走同一套逻辑，保证一致）----
     final keywords = await _db.getAllBlockedKeywords();
@@ -97,7 +98,9 @@ class PluginFeedRepository {
       try {
         return jsonDecode(raw);
       } catch (_) {
-        throw FeedParseException('插件响应体不是合法 JSON：${raw.runtimeType}');
+        // 后期可能支持RSS订阅的xml，不是合法 JSON的字符串也返回
+        return raw;
+        // throw FeedParseException('插件响应体不是合法 JSON：${raw.runtimeType}');
       }
     }
     throw FeedParseException('插件响应体类型无法处理：${raw?.runtimeType}');

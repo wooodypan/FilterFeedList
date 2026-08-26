@@ -58,6 +58,7 @@ dependencies:
   # ===== freezed / json_serializable 运行时注解（生成代码在运行时需要）=====
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:

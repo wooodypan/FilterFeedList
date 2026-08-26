@@ -5,6 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../models/data_source_config.dart';
 import '../../models/feed_article.dart';
 import '../../services/feed_source.dart';
+import '../../services/share_service.dart';
 
 /// 文章详情页。
 ///
@@ -32,10 +33,36 @@ class ArticleDetailPage extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
+        // 右上角分享按钮：把标题 + 链接以纯文本分享出去
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.share),
+            tooltip: '分享',
+            onPressed: () async {
+              // 调用分享服务；detailUrl 可能为 null，给个空字符串兜底
+              final result = await ShareService.share(
+                title: article.title,
+                url: article.detailUrl ?? '',
+              );
+              // 组件可能已被销毁（比如分享过程中返回），先判断再弹提示
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    result == ShareService.resultClipboard
+                        ? '已复制标题和链接到剪贴板' // 没有系统分享面板时
+                        : '已唤起系统分享', // 成功唤起系统分享面板
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
-      body: source.detailMode == DetailRenderMode.webview
-          ? _WebViewBody(url: article.detailUrl)
-          : _NativeBody(html: article.contentHtml),
+      body:
+          source.detailMode == DetailRenderMode.webview
+              ? _WebViewBody(url: article.detailUrl)
+              : _NativeBody(html: article.contentHtml),
     );
   }
 }
@@ -56,11 +83,13 @@ class _WebViewBodyState extends State<_WebViewBody> {
   @override
   void initState() {
     super.initState();
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      // 伪装成 iPhone Safari 的 User-Agent，让网页按 iOS 移动端布局渲染
-      ..setUserAgent(
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1');
+    _controller =
+        WebViewController()
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          // 伪装成 iPhone Safari 的 User-Agent，让网页按 iOS 移动端布局渲染
+          ..setUserAgent(
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1',
+          );
     final url = widget.url;
     if (url != null && url.isNotEmpty) {
       // 带上 Accept-Language，告诉服务器优先返回中文内容
