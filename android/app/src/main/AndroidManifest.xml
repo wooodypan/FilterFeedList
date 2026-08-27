@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 网络权限：必须声明，否则 release 构建（只合并 main 清单）无法联网；
+         debug/profile 变体清单里已经声明过，所以之前只有 release 包会网络失败。 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <application
         android:label="漏斗阅读"
         android:name="${applicationName}"

@@ -58,7 +58,8 @@ dependencies:
   # ===== freezed / json_serializable 运行时注解（生成代码在运行时需要）=====
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
-  share_plus: ^12.0.2
+  # 13.x 已迁移到 Built-in Kotlin，消除 KGP 弃用警告（API 兼容：SharePlus.instance.share(ShareParams)）
+  share_plus: ^13.3.0
   url_launcher: ^6.3.2
 
 dev_dependencies:

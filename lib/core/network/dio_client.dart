@@ -19,9 +19,7 @@ class DioClient {
         connectTimeout: connectTimeout,
         receiveTimeout: receiveTimeout,
         // 默认告诉服务端我们要 JSON；具体数据源仍可在 config 里覆盖 headers
-        headers: {
-          'Accept': 'application/json',
-        },
+        headers: {'Accept': 'application/json'},
         // 自动把响应体按 JSON 解析，省得每个地方自己 jsonDecode
         responseType: ResponseType.json,
       ),

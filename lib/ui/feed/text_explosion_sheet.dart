@@ -12,7 +12,10 @@ import '../../utils/word_segmenter.dart';
 /// 2) 「按住并滑动」一次连选一段相邻词（在已有勾选基础上追加，不会清掉之前选的）；
 /// 3) 点「添加选中到屏蔽词」把选中的词按原文顺序「拼成一整段短语」加进屏蔽列表；
 ///    例如选中「谷 / 饲 / 牛腱」会合并成「谷饲牛腱」一个屏蔽词，而不是拆成三块；
-/// 4) 在底部输入框里直接敲一个词，点「添加」立即屏蔽。
+/// 4) 在底部输入框里直接敲一个词，点「添加」立即屏蔽；
+/// 5) 点「编辑」可对拼出来的短语做二次编辑——分词往往不含空格，
+///    比如选出的词拼出来是「iPhone17Pro」，但你想屏蔽的标准写法带空格
+///    「iPhone 17 Pro」，就可以在就地输入框里手动补空格，再添加。
 ///
 /// 用法：
 /// ```dart
@@ -105,6 +108,26 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
   /// 自定义添加后的瞬时提示文案（清空输入框用）
   String? _justAdded;
 
+  /// 用户「二次编辑」后的短语。
+  ///
+  /// 例如分词选出的词拼出来是「iPhone17Pro」，但用户想屏蔽的标准写法带空格
+  /// 「iPhone 17 Pro」，就可以在「编辑」里手动补空格。编辑后这个值非空，
+  /// 添加时优先用它；为 null 表示没编辑过，用按词块拼出的 [_selectedPhrase]。
+  /// 注意：一旦用户重新选/取消词块（选中集合变化），这里会重置为 null，
+  /// 因为编辑内容是基于旧选择的，已不再适用。
+  String? _editedPhrase;
+
+  /// 是否进入「内联编辑」模式。
+  ///
+  /// 最初用 showDialog 弹窗编辑，但在 Android 上弹窗路由卸载与父组件
+  /// setState 重建抢同一帧，会触发 InheritedElement.debugDeactivated 的
+  /// _dependents.isEmpty 断言崩溃。因此改为「同一条 bottom sheet 内的输入框」
+  /// 直接就地改，彻底避开弹窗路由的生命周期竞态。
+  bool _editing = false;
+
+  /// 内联编辑框的控制器（进入编辑模式时把当前短语预填进去）。
+  final TextEditingController _editController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -118,6 +141,7 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
   @override
   void dispose() {
     _inputController.dispose();
+    _editController.dispose();
     super.dispose();
   }
 
@@ -130,7 +154,11 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
     _dragMoved = false;
     _anchor = i;
     _selectionBeforePress = Set<int>.of(_selected);
-    setState(() => _selected.add(i));
+    // 选区一旦开始变化，之前手动编辑过的短语就作废了，重置为空
+    setState(() {
+      _selected.add(i);
+      _editedPhrase = null;
+    });
   }
 
   /// 手指「滑到」下标为 [i] 的词块上：把起点到该词的连续区间「追加」进选中集合。
@@ -150,6 +178,8 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
       for (int x = lo; x <= hi; x++) {
         _selected.add(x);
       }
+      // 滑动连选时选区在变，编辑内容作废
+      _editedPhrase = null;
     });
   }
 
@@ -169,6 +199,8 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
       } else {
         _selected.add(i);
       }
+      // 单击改变勾选，编辑内容作废
+      _editedPhrase = null;
     });
   }
 
@@ -227,17 +259,53 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
     return idxs.map((i) => _tokens[i]).join('');
   }
 
+  /// 最终用于屏蔽的短语：优先用用户「二次编辑」后的内容 [_editedPhrase]，
+  /// 否则用按词块拼出来的原短语 [_selectedPhrase]。
+  String get _finalPhrase => _editedPhrase ?? _selectedPhrase;
+
   /// 把选中的词块「拼成一个短语」加进屏蔽列表。
   ///
   /// 关键改动：不再把每个词块拆成独立屏蔽词，而是把选中的连续词块
   /// 拼成一个完整短语（谷/饲/牛腱 -> 谷饲牛腱），作为「一个」屏蔽词加入，
   /// 避免「谷」单独屏蔽时误伤「谷物」「五谷」等无关词。
+  /// 短语优先取用户二次编辑过的版本（可能含手动补的空格）。
   Future<void> _addSelected() async {
     if (_selected.isEmpty) return;
-    final phrase = _selectedPhrase;
+    final phrase = _finalPhrase;
     if (phrase.isEmpty) return;
     await ref.read(blockedKeywordsProvider.notifier).add(phrase);
     widget.onAdded(1, phrase);
+  }
+
+  /// 清空选择，同时把「二次编辑」的内容一并清掉。
+  void _clearSelection() {
+    setState(() {
+      _selected.clear();
+      _editedPhrase = null;
+    });
+  }
+
+  /// 进入「内联编辑」模式：把当前拼好的短语预填进编辑框并切换 UI。
+  ///
+  /// 不用 showDialog 弹窗（Android 上弹窗路由卸载会与父组件 setState 抢帧，
+  /// 触发 _dependents.isEmpty 断言崩溃），而是就地显示输入框。
+  void _enterEdit() {
+    if (_selected.isEmpty) return;
+    // 预填：已经有编辑内容就用编辑过的，否则用原始拼接短语
+    _editController.text = _finalPhrase;
+    setState(() => _editing = true);
+  }
+
+  /// 退出「内联编辑」模式。
+  ///
+  /// [save] 为 true 时把输入框内容写回 [_editedPhrase]（空字符串等同没编辑，
+  /// 记回 null）；为 false 表示取消，丢弃本次输入。
+  void _exitEdit({required bool save}) {
+    if (save) {
+      final trimmed = _editController.text.trim();
+      _editedPhrase = trimmed.isEmpty ? null : trimmed;
+    }
+    setState(() => _editing = false);
   }
 
   /// 把输入框里的自定义词立即加进屏蔽列表。
@@ -284,11 +352,11 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
             const SizedBox(height: 12),
 
             // 标题 + 使用提示
-            Text('文字大爆炸', style: theme.textTheme.titleMedium),
+            Text('添加到屏蔽词语清单', style: theme.textTheme.titleMedium),
             const SizedBox(height: 2),
             Text(
               '单击词块逐个勾选，或按住滑动连选一段；'
-              '选中的词会拼成一个短语加入屏蔽',
+              '选中的词会拼成一个短语加入屏蔽，需要加空格时点「编辑」',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: Colors.grey[600],
               ),
@@ -312,65 +380,109 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
             ),
             const SizedBox(height: 12),
 
-            // 词块区域：可滚动（词多时不撑爆弹层）
-            ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.35,
+            // 中间区域：编辑模式显示就地输入框，否则显示词块 + 操作行
+            if (_editing) ...[
+              // 内联编辑框：直接就地改短语（避免弹窗路由卸载竞态）
+              TextField(
+                controller: _editController,
+                autofocus: true,
+                // 输入时重建本行，让下面的「将屏蔽」预览实时跟随
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(
+                  labelText: '编辑要屏蔽的词',
+                  hintText: '可手动加空格，例如 iPhone 17 Pro',
+                  border: OutlineInputBorder(),
+                ),
               ),
-              // 整个区域共用一个 Listener 收指针事件：
-              // Flutter 的命中测试只在按下瞬间做一次，之后 move 事件不会
-              // 派发给「新滑入」的词块，所以必须由这个全局 Listener 统一
-              // 接收，再用各词块的全局矩形（_chipRects）查手指压在哪。
-              child: Listener(
-                behavior: HitTestBehavior.opaque,
-                onPointerDown: _onAreaPointerDown,
-                onPointerMove: _onAreaPointerMove,
-                onPointerUp: _onAreaPointerUp,
-                child: SingleChildScrollView(
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (int i = 0; i < _tokens.length; i++)
-                        _TokenChip(
-                          key: _chipKeys[i],
-                          label: _tokens[i],
-                          selected: _selected.contains(i),
-                        ),
-                    ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _editController.text.trim().isEmpty
+                          ? '（空，将不添加）'
+                          : '将屏蔽：${_editController.text.trim()}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _exitEdit(save: false),
+                    child: const Text('取消'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => _exitEdit(save: true),
+                    child: const Text('完成'),
+                  ),
+                ],
+              ),
+            ] else ...[
+              // 词块区域：可滚动（词多时不撑爆弹层）
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.35,
+                ),
+                // 整个区域共用一个 Listener 收指针事件：
+                // Flutter 的命中测试只在按下瞬间做一次，之后 move 事件不会
+                // 派发给「新滑入」的词块，所以必须由这个全局 Listener 统一
+                // 接收，再用各词块的全局矩形（_chipRects）查手指压在哪。
+                child: Listener(
+                  behavior: HitTestBehavior.opaque,
+                  onPointerDown: _onAreaPointerDown,
+                  onPointerMove: _onAreaPointerMove,
+                  onPointerUp: _onAreaPointerUp,
+                  child: SingleChildScrollView(
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        for (int i = 0; i < _tokens.length; i++)
+                          _TokenChip(
+                            key: _chipKeys[i],
+                            label: _tokens[i],
+                            selected: _selected.contains(i),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            // 选中操作行
-            Row(
-              children: [
-                // 实时预览将要屏蔽的短语（所见即所得）已选 $selectedCount 个
-                Expanded(
-                  child: Text(
-                    _selected.isEmpty ? '' : '将屏蔽：$_selectedPhrase',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                TextButton(
-                  onPressed:
+              // 选中操作行
+              Row(
+                children: [
+                  // 实时预览将要屏蔽的短语（所见即所得）已选 $selectedCount 个
+                  // 若用户手动二次编辑过，附上「（已编辑）」标记提示
+                  Expanded(
+                    child: Text(
                       _selected.isEmpty
-                          ? null
-                          : () => setState(_selected.clear),
-                  child: const Text('清空'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.block, size: 18),
-                  label: const Text('添加选中到屏蔽词'),
-                  // 没选东西时禁用
-                  onPressed: selectedCount == 0 ? null : _addSelected,
-                ),
-              ],
-            ),
+                          ? ''
+                          : '将屏蔽：$_finalPhrase${_editedPhrase != null ? '（已编辑）' : ''}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  // 二次编辑：手动补空格等，针对分词不含空格的场景
+                  TextButton(
+                    onPressed: _selected.isEmpty ? null : _enterEdit,
+                    child: const Text('编辑'),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: _selected.isEmpty ? null : _clearSelection,
+                    child: const Text('清空'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.block, size: 18),
+                    label: const Text('添加'),
+                    // 没选东西时禁用
+                    onPressed: selectedCount == 0 ? null : _addSelected,
+                  ),
+                ],
+              ),
+            ],
 
             const Divider(height: 24),
 
