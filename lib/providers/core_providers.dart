@@ -9,6 +9,7 @@ import '../plugin/plugin_downloader.dart';
 import '../plugin/plugin_feed_repository.dart';
 import '../plugin/plugin_repository.dart';
 import '../services/feed_repository.dart';
+import '../services/rss_feed_repository.dart';
 
 /// 全局数据库实例。
 /// 注意：main.dart 里会用 overrideWithValue 把它替换成"已初始化并完成种子数据"的同一个实例，
@@ -20,7 +21,14 @@ final dioProvider = Provider<Dio>((ref) => DioClient.create());
 
 /// 信息流仓库：组合 dio + 数据库（JSONPath 声明式数据源用）。
 final feedRepositoryProvider = Provider<FeedRepository>(
-  (ref) => FeedRepository(ref.watch(dioProvider), ref.watch(appDatabaseProvider)),
+  (ref) =>
+      FeedRepository(ref.watch(dioProvider), ref.watch(appDatabaseProvider)),
+);
+
+/// RSS 订阅源仓库：组合 dio + 数据库（RSS/Atom 订阅数据源用）。
+final rssFeedRepositoryProvider = Provider<RssFeedRepository>(
+  (ref) =>
+      RssFeedRepository(ref.watch(dioProvider), ref.watch(appDatabaseProvider)),
 );
 
 // ===================== 插件系统相关 Provider =====================

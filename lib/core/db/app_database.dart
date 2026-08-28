@@ -23,7 +23,9 @@ part 'app_database.g.dart';
 @DriftDatabase(tables: [DataSources, BlockedKeywords, InstalledPlugins])
 class AppDatabase extends _$AppDatabase {
   /// 默认的构造函数：自动在"应用文档目录"下建一个 sqlite 文件。
-  AppDatabase() : super(_openConnection());
+  /// [executor] 可选，供测试注入内存数据库（NativeDatabase.memory()），
+  /// 生产代码一律不传、走默认文件连接。
+  AppDatabase({QueryExecutor? executor}) : super(executor ?? _openConnection());
 
   @override
   int get schemaVersion => 2;
@@ -53,9 +55,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// 根据 id 查单个数据源
   Future<DataSourceConfig?> getDataSourceById(String id) async {
-    final row = await (select(dataSources)
-          ..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    final row = await (select(
+      dataSources,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
     return row?.config;
   }
 
@@ -79,17 +81,18 @@ class AppDatabase extends _$AppDatabase {
 
   /// 切换启用状态
   Future<void> setEnabled(String id, bool enabled) {
-    return (update(dataSources)..where((t) => t.id.equals(id)))
-        .write(DataSourcesCompanion(enabled: Value(enabled)));
+    return (update(dataSources)..where((t) => t.id.equals(id))).write(
+      DataSourcesCompanion(enabled: Value(enabled)),
+    );
   }
 
   // ===================== 屏蔽词相关 DAO =====================
 
   /// 查出所有屏蔽词（按添加时间倒序），返回纯字符串列表
   Future<List<String>> getAllBlockedKeywords() async {
-    final rows = await (select(blockedKeywords)
-          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
-        .get();
+    final rows = await (select(
+      blockedKeywords,
+    )..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).get();
     return rows.map((r) => r.word).toList();
   }
 
@@ -103,9 +106,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// 添加一个屏蔽词（重复添加会忽略）
   Future<void> addBlockedKeyword(String word) {
-    return into(blockedKeywords).insertOnConflictUpdate(
-      BlockedKeywordsCompanion.insert(word: word),
-    );
+    return into(
+      blockedKeywords,
+    ).insertOnConflictUpdate(BlockedKeywordsCompanion.insert(word: word));
   }
 
   /// 删除一个屏蔽词
@@ -117,17 +120,17 @@ class AppDatabase extends _$AppDatabase {
 
   /// 查出所有已安装插件（按安装时间倒序）。
   Future<List<InstalledPlugin>> getAllInstalledPlugins() async {
-    final rows = await (select(installedPlugins)
-          ..orderBy([(t) => OrderingTerm.desc(t.installedAt)]))
-        .get();
+    final rows = await (select(
+      installedPlugins,
+    )..orderBy([(t) => OrderingTerm.desc(t.installedAt)])).get();
     return rows.map(_rowToInstalledPlugin).toList();
   }
 
   /// 根据 id 查单个插件。
   Future<InstalledPlugin?> getInstalledPluginById(String id) async {
-    final row = await (select(installedPlugins)
-          ..where((t) => t.id.equals(id)))
-        .getSingleOrNull();
+    final row = await (select(
+      installedPlugins,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
     return row == null ? null : _rowToInstalledPlugin(row);
   }
 
@@ -156,8 +159,9 @@ class AppDatabase extends _$AppDatabase {
 
   /// 切换启用状态。
   Future<void> setPluginEnabled(String id, bool enabled) {
-    return (update(installedPlugins)..where((t) => t.id.equals(id)))
-        .write(InstalledPluginsCompanion(enabled: Value(enabled)));
+    return (update(installedPlugins)..where((t) => t.id.equals(id))).write(
+      InstalledPluginsCompanion(enabled: Value(enabled)),
+    );
   }
 
   /// 把数据库行（含 manifestJson 列）组装成 [InstalledPlugin]。
@@ -181,12 +185,14 @@ class AppDatabase extends _$AppDatabase {
 
   // ===================== 首次启动种子数据 =====================
 
-  /// 如果一张数据源都没有，写入一个示例（Hacker News），让 app 开箱即有内容。
+  /// 如果一张数据源都没有，写入示例（Hacker News + 阮一峰博客 RSS），
+  /// 让 app 开箱即有内容，也能直观看到两种数据源形态。
   Future<void> seedIfEmpty() async {
     final existing = await getAllDataSources();
     if (existing.isNotEmpty) return;
 
     await upsertDataSource(_defaultHackerNews());
+    await upsertDataSource(_defaultRuanYifengRss());
   }
 
   /// 内置示例数据源：Hacker News 公开 API（无需鉴权，结构稳定）。
@@ -206,6 +212,18 @@ class AppDatabase extends _$AppDatabase {
         publishTimePath: 'created_at',
         detailUrlPath: 'url',
       ),
+      detailMode: DetailRenderMode.webview,
+    );
+  }
+
+  /// 内置示例 RSS 订阅源：阮一峰的网络日志（Atom 格式，无需鉴权）。
+  /// RSS 源没有字段映射（fieldMapping 为 null），feed 地址存 apiUrl。
+  DataSourceConfig _defaultRuanYifengRss() {
+    return const DataSourceConfig(
+      id: 'ruanyifeng_rss_demo',
+      name: '阮一峰的网络日志 (示例)',
+      apiUrl: 'https://www.ruanyifeng.com/blog/atom.xml',
+      sourceType: DataSourceType.rss,
       detailMode: DetailRenderMode.webview,
     );
   }

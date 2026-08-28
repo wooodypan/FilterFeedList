@@ -1,6 +1,7 @@
 import '../models/data_source_config.dart';
 import '../models/feed_article.dart';
 import 'feed_repository.dart';
+import 'rss_feed_repository.dart';
 
 /// 信息流数据源的统一抽象。
 ///
@@ -65,6 +66,49 @@ class JsonPathFeedSource implements FeedSource {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is JsonPathFeedSource && other.config == config;
+
+  @override
+  int get hashCode => config.hashCode;
+}
+
+/// RSS/Atom 订阅数据源（第三种接入方式，零配置）。
+///
+/// 用户只要给一个 feed 地址就能订阅；实现同 [JsonPathFeedSource] 一样薄——
+/// 把请求转交给 [RssFeedRepository]（它内部做 dio 拉取 → XML 解析 → 屏蔽词过滤）。
+class RssFeedSource implements FeedSource {
+  final DataSourceConfig config;
+  final RssFeedRepository repo;
+
+  RssFeedSource({required this.config, required this.repo});
+
+  @override
+  String get id => config.id;
+
+  @override
+  String get name => config.name;
+
+  @override
+  bool get enabled => config.enabled;
+
+  // RSS 条目天然有链接，详情页默认走 WebView 加载原文；
+  // 全文输出的 feed（如 Atom content）也可以在编辑页切成原生渲染。
+  @override
+  DetailRenderMode get detailMode => config.detailMode;
+
+  @override
+  String? get detailUrlTemplate => config.detailUrlTemplate;
+
+  @override
+  Future<List<FeedArticle>> fetchFeed({required int page, int pageSize = 20}) =>
+      repo.fetchFeed(config, page: page, pageSize: pageSize);
+
+  /// 同 [JsonPathFeedSource]：基于 config 做相等判断。
+  /// 注意必须实现——feedTabProvider 用 FeedSource 实例当 family key，
+  /// 漏了 == 会导致任意数据源增删改后所有 Tab 全量重拉。
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is RssFeedSource && other.config == config;
 
   @override
   int get hashCode => config.hashCode;

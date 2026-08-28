@@ -6,8 +6,8 @@ part of 'field_mapping.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-_$FieldMappingImpl _$$FieldMappingImplFromJson(Map<String, dynamic> json) =>
-    _$FieldMappingImpl(
+_FieldMapping _$FieldMappingFromJson(Map<String, dynamic> json) =>
+    _FieldMapping(
       listPath: json['listPath'] as String,
       titlePath: json['titlePath'] as String,
       thumbPath: json['thumbPath'] as String,
@@ -19,7 +19,7 @@ _$FieldMappingImpl _$$FieldMappingImplFromJson(Map<String, dynamic> json) =>
       uniqueIdPath: json['uniqueIdPath'] as String?,
     );
 
-Map<String, dynamic> _$$FieldMappingImplToJson(_$FieldMappingImpl instance) =>
+Map<String, dynamic> _$FieldMappingToJson(_FieldMapping instance) =>
     <String, dynamic>{
       'listPath': instance.listPath,
       'titlePath': instance.titlePath,

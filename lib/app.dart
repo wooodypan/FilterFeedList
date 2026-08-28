@@ -10,6 +10,7 @@ import 'ui/feed/feed_list_page.dart';
 import 'ui/settings/blocked_keyword_page.dart';
 import 'ui/settings/data_source_edit_page.dart';
 import 'ui/settings/data_source_list_page.dart';
+import 'ui/settings/rss_source_edit_page.dart';
 import 'ui/settings/settings_page.dart';
 
 /// 全局路由表（声明式，go_router）。
@@ -18,10 +19,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     initialLocation: '/',
     routes: [
-      GoRoute(
-        path: '/',
-        builder: (context, state) => const FeedListPage(),
-      ),
+      GoRoute(path: '/', builder: (context, state) => const FeedListPage()),
       GoRoute(
         path: '/detail',
         builder: (context, state) {
@@ -48,6 +46,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/settings/sources/rss-edit',
+        builder: (context, state) => RssSourceEditPage(
+          // 编辑 RSS 订阅时同样通过 extra 传整份配置
+          initial: state.extra as DataSourceConfig?,
+        ),
+      ),
+      GoRoute(
         path: '/settings/blocked',
         builder: (context, state) => const BlockedKeywordPage(),
       ),
@@ -65,10 +70,7 @@ class MyApp extends ConsumerWidget {
     return MaterialApp.router(
       title: '漏斗阅读',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.teal,
-      ),
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.teal),
       routerConfig: router,
     );
   }

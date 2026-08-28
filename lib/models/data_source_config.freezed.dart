@@ -1,6 +1,6 @@
-// coverage:ignore-file
 // GENERATED CODE - DO NOT MODIFY BY HAND
-// ignore_for_file: type=lint
+// coverage:ignore-file
+// ignore_for_file: type=lint, type=warning, deprecated_member_use, deprecated_member_use_from_same_package
 // ignore_for_file: unused_element, deprecated_member_use, deprecated_member_use_from_same_package, use_function_type_syntax_for_parameters, unnecessary_const, avoid_init_to_null, invalid_override_different_default_values_named, prefer_expression_function_bodies, annotate_overrides, invalid_annotation_target, unnecessary_question_mark
 
 part of 'data_source_config.dart';
@@ -9,489 +9,366 @@ part of 'data_source_config.dart';
 // FreezedGenerator
 // **************************************************************************
 
+// GENERATED CODE - DO NOT MODIFY BY HAND
+// dart format off
 T _$identity<T>(T value) => value;
-
-final _privateConstructorUsedError = UnsupportedError(
-  'It seems like you constructed your class using `MyClass._()`. This constructor is only meant to be used by freezed and you are not supposed to need it nor use it.\nPlease check the documentation here for more information: https://github.com/rrousselGit/freezed#adding-getters-and-methods-to-our-models',
-);
-
-DataSourceConfig _$DataSourceConfigFromJson(Map<String, dynamic> json) {
-  return _DataSourceConfig.fromJson(json);
-}
 
 /// @nodoc
 mixin _$DataSourceConfig {
-  /// 唯一 id（本地生成，用于数据库主键 / 去重标记）
-  String get id => throw _privateConstructorUsedError;
 
-  /// 数据源名称（用户自定义，展示在 Tab 上）
-  String get name => throw _privateConstructorUsedError;
-
-  /// 请求地址，支持占位符 {page} 和 {pageSize}（分页时自动替换）
-  String get apiUrl => throw _privateConstructorUsedError;
-
-  /// 请求方法，默认 GET
-  String get method => throw _privateConstructorUsedError;
-
-  /// 静态请求头（有些 API 需要带 token / 自定义 UA）
-  Map<String, String>? get headers => throw _privateConstructorUsedError;
-
-  /// 静态 query 参数（拼在 URL 后面，不参与 JSONPath）
-  Map<String, String>? get queryParams => throw _privateConstructorUsedError;
-
-  /// 核心：字段映射规则
-  FieldMapping get fieldMapping => throw _privateConstructorUsedError;
-
-  /// 详情页渲染方式
-  @DetailRenderModeConverter()
-  DetailRenderMode get detailMode => throw _privateConstructorUsedError;
-
-  /// 详情页 URL 拼接模板（如果详情走 webview 且链接需要二次拼接）
-  String? get detailUrlTemplate => throw _privateConstructorUsedError;
-
-  /// 是否启用（关闭后不参与信息流聚合）
-  bool get enabled => throw _privateConstructorUsedError;
+/// 唯一 id（本地生成，用于数据库主键 / 去重标记）
+ String get id;/// 数据源名称（用户自定义，展示在 Tab 上）
+ String get name;/// 数据源类型（json = JSONPath 配置源；rss = RSS/Atom 订阅源）
+@DataSourceTypeConverter() DataSourceType get sourceType;/// 请求地址。json 源支持占位符 {page} 和 {pageSize}（分页时自动替换）；
+/// rss 源即 feed 的 URL。
+ String get apiUrl;/// 请求方法，默认 GET（仅 json 源使用）
+ String get method;/// 静态请求头（有些 API 需要带 token / 自定义 UA，仅 json 源使用）
+ Map<String, String>? get headers;/// 静态 query 参数（拼在 URL 后面，不参与 JSONPath，仅 json 源使用）
+ Map<String, String>? get queryParams;/// 核心：字段映射规则（仅 json 源使用；rss 源为 null）
+ FieldMapping? get fieldMapping;/// 详情页渲染方式
+@DetailRenderModeConverter() DetailRenderMode get detailMode;/// 详情页 URL 拼接模板（如果详情走 webview 且链接需要二次拼接）
+ String? get detailUrlTemplate;/// 是否启用（关闭后不参与信息流聚合）
+ bool get enabled;
+/// Create a copy of DataSourceConfig
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$DataSourceConfigCopyWith<DataSourceConfig> get copyWith => _$DataSourceConfigCopyWithImpl<DataSourceConfig>(this as DataSourceConfig, _$identity);
 
   /// Serializes this DataSourceConfig to a JSON map.
-  Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
+  Map<String, dynamic> toJson();
 
-  /// Create a copy of DataSourceConfig
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  $DataSourceConfigCopyWith<DataSourceConfig> get copyWith =>
-      throw _privateConstructorUsedError;
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DataSourceConfig&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.sourceType, sourceType) || other.sourceType == sourceType)&&(identical(other.apiUrl, apiUrl) || other.apiUrl == apiUrl)&&(identical(other.method, method) || other.method == method)&&const DeepCollectionEquality().equals(other.headers, headers)&&const DeepCollectionEquality().equals(other.queryParams, queryParams)&&(identical(other.fieldMapping, fieldMapping) || other.fieldMapping == fieldMapping)&&(identical(other.detailMode, detailMode) || other.detailMode == detailMode)&&(identical(other.detailUrlTemplate, detailUrlTemplate) || other.detailUrlTemplate == detailUrlTemplate)&&(identical(other.enabled, enabled) || other.enabled == enabled));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,name,sourceType,apiUrl,method,const DeepCollectionEquality().hash(headers),const DeepCollectionEquality().hash(queryParams),fieldMapping,detailMode,detailUrlTemplate,enabled);
+
+@override
+String toString() {
+  return 'DataSourceConfig(id: $id, name: $name, sourceType: $sourceType, apiUrl: $apiUrl, method: $method, headers: $headers, queryParams: $queryParams, fieldMapping: $fieldMapping, detailMode: $detailMode, detailUrlTemplate: $detailUrlTemplate, enabled: $enabled)';
+}
+
+
 }
 
 /// @nodoc
-abstract class $DataSourceConfigCopyWith<$Res> {
-  factory $DataSourceConfigCopyWith(
-    DataSourceConfig value,
-    $Res Function(DataSourceConfig) then,
-  ) = _$DataSourceConfigCopyWithImpl<$Res, DataSourceConfig>;
-  @useResult
-  $Res call({
-    String id,
-    String name,
-    String apiUrl,
-    String method,
-    Map<String, String>? headers,
-    Map<String, String>? queryParams,
-    FieldMapping fieldMapping,
-    @DetailRenderModeConverter() DetailRenderMode detailMode,
-    String? detailUrlTemplate,
-    bool enabled,
-  });
+abstract mixin class $DataSourceConfigCopyWith<$Res>  {
+  factory $DataSourceConfigCopyWith(DataSourceConfig value, $Res Function(DataSourceConfig) _then) = _$DataSourceConfigCopyWithImpl;
+@useResult
+$Res call({
+ String id, String name,@DataSourceTypeConverter() DataSourceType sourceType, String apiUrl, String method, Map<String, String>? headers, Map<String, String>? queryParams, FieldMapping? fieldMapping,@DetailRenderModeConverter() DetailRenderMode detailMode, String? detailUrlTemplate, bool enabled
+});
 
-  $FieldMappingCopyWith<$Res> get fieldMapping;
+
+$FieldMappingCopyWith<$Res>? get fieldMapping;
+
 }
-
 /// @nodoc
-class _$DataSourceConfigCopyWithImpl<$Res, $Val extends DataSourceConfig>
+class _$DataSourceConfigCopyWithImpl<$Res>
     implements $DataSourceConfigCopyWith<$Res> {
-  _$DataSourceConfigCopyWithImpl(this._value, this._then);
+  _$DataSourceConfigCopyWithImpl(this._self, this._then);
 
-  // ignore: unused_field
-  final $Val _value;
-  // ignore: unused_field
-  final $Res Function($Val) _then;
+  final DataSourceConfig _self;
+  final $Res Function(DataSourceConfig) _then;
 
-  /// Create a copy of DataSourceConfig
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? id = null,
-    Object? name = null,
-    Object? apiUrl = null,
-    Object? method = null,
-    Object? headers = freezed,
-    Object? queryParams = freezed,
-    Object? fieldMapping = null,
-    Object? detailMode = null,
-    Object? detailUrlTemplate = freezed,
-    Object? enabled = null,
-  }) {
-    return _then(
-      _value.copyWith(
-            id:
-                null == id
-                    ? _value.id
-                    : id // ignore: cast_nullable_to_non_nullable
-                        as String,
-            name:
-                null == name
-                    ? _value.name
-                    : name // ignore: cast_nullable_to_non_nullable
-                        as String,
-            apiUrl:
-                null == apiUrl
-                    ? _value.apiUrl
-                    : apiUrl // ignore: cast_nullable_to_non_nullable
-                        as String,
-            method:
-                null == method
-                    ? _value.method
-                    : method // ignore: cast_nullable_to_non_nullable
-                        as String,
-            headers:
-                freezed == headers
-                    ? _value.headers
-                    : headers // ignore: cast_nullable_to_non_nullable
-                        as Map<String, String>?,
-            queryParams:
-                freezed == queryParams
-                    ? _value.queryParams
-                    : queryParams // ignore: cast_nullable_to_non_nullable
-                        as Map<String, String>?,
-            fieldMapping:
-                null == fieldMapping
-                    ? _value.fieldMapping
-                    : fieldMapping // ignore: cast_nullable_to_non_nullable
-                        as FieldMapping,
-            detailMode:
-                null == detailMode
-                    ? _value.detailMode
-                    : detailMode // ignore: cast_nullable_to_non_nullable
-                        as DetailRenderMode,
-            detailUrlTemplate:
-                freezed == detailUrlTemplate
-                    ? _value.detailUrlTemplate
-                    : detailUrlTemplate // ignore: cast_nullable_to_non_nullable
-                        as String?,
-            enabled:
-                null == enabled
-                    ? _value.enabled
-                    : enabled // ignore: cast_nullable_to_non_nullable
-                        as bool,
-          )
-          as $Val,
-    );
-  }
-
-  /// Create a copy of DataSourceConfig
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @pragma('vm:prefer-inline')
-  $FieldMappingCopyWith<$Res> get fieldMapping {
-    return $FieldMappingCopyWith<$Res>(_value.fieldMapping, (value) {
-      return _then(_value.copyWith(fieldMapping: value) as $Val);
-    });
-  }
+/// Create a copy of DataSourceConfig
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? sourceType = null,Object? apiUrl = null,Object? method = null,Object? headers = freezed,Object? queryParams = freezed,Object? fieldMapping = freezed,Object? detailMode = null,Object? detailUrlTemplate = freezed,Object? enabled = null,}) {
+  return _then(DataSourceConfig(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,sourceType: null == sourceType ? _self.sourceType : sourceType // ignore: cast_nullable_to_non_nullable
+as DataSourceType,apiUrl: null == apiUrl ? _self.apiUrl : apiUrl // ignore: cast_nullable_to_non_nullable
+as String,method: null == method ? _self.method : method // ignore: cast_nullable_to_non_nullable
+as String,headers: freezed == headers ? _self.headers : headers // ignore: cast_nullable_to_non_nullable
+as Map<String, String>?,queryParams: freezed == queryParams ? _self.queryParams : queryParams // ignore: cast_nullable_to_non_nullable
+as Map<String, String>?,fieldMapping: freezed == fieldMapping ? _self.fieldMapping : fieldMapping // ignore: cast_nullable_to_non_nullable
+as FieldMapping?,detailMode: null == detailMode ? _self.detailMode : detailMode // ignore: cast_nullable_to_non_nullable
+as DetailRenderMode,detailUrlTemplate: freezed == detailUrlTemplate ? _self.detailUrlTemplate : detailUrlTemplate // ignore: cast_nullable_to_non_nullable
+as String?,enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
 }
+/// Create a copy of DataSourceConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$FieldMappingCopyWith<$Res>? get fieldMapping {
+    if (_self.fieldMapping == null) {
+    return null;
+  }
 
-/// @nodoc
-abstract class _$$DataSourceConfigImplCopyWith<$Res>
-    implements $DataSourceConfigCopyWith<$Res> {
-  factory _$$DataSourceConfigImplCopyWith(
-    _$DataSourceConfigImpl value,
-    $Res Function(_$DataSourceConfigImpl) then,
-  ) = __$$DataSourceConfigImplCopyWithImpl<$Res>;
-  @override
-  @useResult
-  $Res call({
-    String id,
-    String name,
-    String apiUrl,
-    String method,
-    Map<String, String>? headers,
-    Map<String, String>? queryParams,
-    FieldMapping fieldMapping,
-    @DetailRenderModeConverter() DetailRenderMode detailMode,
-    String? detailUrlTemplate,
-    bool enabled,
+  return $FieldMappingCopyWith<$Res>(_self.fieldMapping!, (value) {
+    return _then(_self.copyWith(fieldMapping: value));
   });
-
-  @override
-  $FieldMappingCopyWith<$Res> get fieldMapping;
+}
 }
 
-/// @nodoc
-class __$$DataSourceConfigImplCopyWithImpl<$Res>
-    extends _$DataSourceConfigCopyWithImpl<$Res, _$DataSourceConfigImpl>
-    implements _$$DataSourceConfigImplCopyWith<$Res> {
-  __$$DataSourceConfigImplCopyWithImpl(
-    _$DataSourceConfigImpl _value,
-    $Res Function(_$DataSourceConfigImpl) _then,
-  ) : super(_value, _then);
 
-  /// Create a copy of DataSourceConfig
-  /// with the given fields replaced by the non-null parameter values.
-  @pragma('vm:prefer-inline')
-  @override
-  $Res call({
-    Object? id = null,
-    Object? name = null,
-    Object? apiUrl = null,
-    Object? method = null,
-    Object? headers = freezed,
-    Object? queryParams = freezed,
-    Object? fieldMapping = null,
-    Object? detailMode = null,
-    Object? detailUrlTemplate = freezed,
-    Object? enabled = null,
-  }) {
-    return _then(
-      _$DataSourceConfigImpl(
-        id:
-            null == id
-                ? _value.id
-                : id // ignore: cast_nullable_to_non_nullable
-                    as String,
-        name:
-            null == name
-                ? _value.name
-                : name // ignore: cast_nullable_to_non_nullable
-                    as String,
-        apiUrl:
-            null == apiUrl
-                ? _value.apiUrl
-                : apiUrl // ignore: cast_nullable_to_non_nullable
-                    as String,
-        method:
-            null == method
-                ? _value.method
-                : method // ignore: cast_nullable_to_non_nullable
-                    as String,
-        headers:
-            freezed == headers
-                ? _value._headers
-                : headers // ignore: cast_nullable_to_non_nullable
-                    as Map<String, String>?,
-        queryParams:
-            freezed == queryParams
-                ? _value._queryParams
-                : queryParams // ignore: cast_nullable_to_non_nullable
-                    as Map<String, String>?,
-        fieldMapping:
-            null == fieldMapping
-                ? _value.fieldMapping
-                : fieldMapping // ignore: cast_nullable_to_non_nullable
-                    as FieldMapping,
-        detailMode:
-            null == detailMode
-                ? _value.detailMode
-                : detailMode // ignore: cast_nullable_to_non_nullable
-                    as DetailRenderMode,
-        detailUrlTemplate:
-            freezed == detailUrlTemplate
-                ? _value.detailUrlTemplate
-                : detailUrlTemplate // ignore: cast_nullable_to_non_nullable
-                    as String?,
-        enabled:
-            null == enabled
-                ? _value.enabled
-                : enabled // ignore: cast_nullable_to_non_nullable
-                    as bool,
-      ),
-    );
-  }
+/// Adds pattern-matching-related methods to [DataSourceConfig].
+extension DataSourceConfigPatterns on DataSourceConfig {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _DataSourceConfig value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _DataSourceConfig() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _DataSourceConfig value)  $default,){
+final _that = this;
+switch (_that) {
+case _DataSourceConfig():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _DataSourceConfig value)?  $default,){
+final _that = this;
+switch (_that) {
+case _DataSourceConfig() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name, @DataSourceTypeConverter()  DataSourceType sourceType,  String apiUrl,  String method,  Map<String, String>? headers,  Map<String, String>? queryParams,  FieldMapping? fieldMapping, @DetailRenderModeConverter()  DetailRenderMode detailMode,  String? detailUrlTemplate,  bool enabled)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _DataSourceConfig() when $default != null:
+return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_that.headers,_that.queryParams,_that.fieldMapping,_that.detailMode,_that.detailUrlTemplate,_that.enabled);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name, @DataSourceTypeConverter()  DataSourceType sourceType,  String apiUrl,  String method,  Map<String, String>? headers,  Map<String, String>? queryParams,  FieldMapping? fieldMapping, @DetailRenderModeConverter()  DetailRenderMode detailMode,  String? detailUrlTemplate,  bool enabled)  $default,) {final _that = this;
+switch (_that) {
+case _DataSourceConfig():
+return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_that.headers,_that.queryParams,_that.fieldMapping,_that.detailMode,_that.detailUrlTemplate,_that.enabled);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name, @DataSourceTypeConverter()  DataSourceType sourceType,  String apiUrl,  String method,  Map<String, String>? headers,  Map<String, String>? queryParams,  FieldMapping? fieldMapping, @DetailRenderModeConverter()  DetailRenderMode detailMode,  String? detailUrlTemplate,  bool enabled)?  $default,) {final _that = this;
+switch (_that) {
+case _DataSourceConfig() when $default != null:
+return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_that.headers,_that.queryParams,_that.fieldMapping,_that.detailMode,_that.detailUrlTemplate,_that.enabled);case _:
+  return null;
+
+}
+}
+
 }
 
 /// @nodoc
 @JsonSerializable()
-class _$DataSourceConfigImpl implements _DataSourceConfig {
-  const _$DataSourceConfigImpl({
-    required this.id,
-    required this.name,
-    required this.apiUrl,
-    this.method = 'GET',
-    final Map<String, String>? headers,
-    final Map<String, String>? queryParams,
-    required this.fieldMapping,
-    @DetailRenderModeConverter() this.detailMode = DetailRenderMode.webview,
-    this.detailUrlTemplate,
-    this.enabled = true,
-  }) : _headers = headers,
-       _queryParams = queryParams;
 
-  factory _$DataSourceConfigImpl.fromJson(Map<String, dynamic> json) =>
-      _$$DataSourceConfigImplFromJson(json);
+class _DataSourceConfig implements DataSourceConfig {
+  const _DataSourceConfig({required this.id, required this.name, @DataSourceTypeConverter() this.sourceType = DataSourceType.json, required this.apiUrl, this.method = 'GET',  Map<String, String>? headers,  Map<String, String>? queryParams, this.fieldMapping, @DetailRenderModeConverter() this.detailMode = DetailRenderMode.webview, this.detailUrlTemplate, this.enabled = true}): _headers = headers,_queryParams = queryParams;
+  factory _DataSourceConfig.fromJson(Map<String, dynamic> json) => _$DataSourceConfigFromJson(json);
 
-  /// 唯一 id（本地生成，用于数据库主键 / 去重标记）
-  @override
-  final String id;
-
-  /// 数据源名称（用户自定义，展示在 Tab 上）
-  @override
-  final String name;
-
-  /// 请求地址，支持占位符 {page} 和 {pageSize}（分页时自动替换）
-  @override
-  final String apiUrl;
-
-  /// 请求方法，默认 GET
-  @override
-  @JsonKey()
-  final String method;
-
-  /// 静态请求头（有些 API 需要带 token / 自定义 UA）
-  final Map<String, String>? _headers;
-
-  /// 静态请求头（有些 API 需要带 token / 自定义 UA）
-  @override
-  Map<String, String>? get headers {
-    final value = _headers;
-    if (value == null) return null;
-    if (_headers is EqualUnmodifiableMapView) return _headers;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableMapView(value);
-  }
-
-  /// 静态 query 参数（拼在 URL 后面，不参与 JSONPath）
-  final Map<String, String>? _queryParams;
-
-  /// 静态 query 参数（拼在 URL 后面，不参与 JSONPath）
-  @override
-  Map<String, String>? get queryParams {
-    final value = _queryParams;
-    if (value == null) return null;
-    if (_queryParams is EqualUnmodifiableMapView) return _queryParams;
-    // ignore: implicit_dynamic_type
-    return EqualUnmodifiableMapView(value);
-  }
-
-  /// 核心：字段映射规则
-  @override
-  final FieldMapping fieldMapping;
-
-  /// 详情页渲染方式
-  @override
-  @JsonKey()
-  @DetailRenderModeConverter()
-  final DetailRenderMode detailMode;
-
-  /// 详情页 URL 拼接模板（如果详情走 webview 且链接需要二次拼接）
-  @override
-  final String? detailUrlTemplate;
-
-  /// 是否启用（关闭后不参与信息流聚合）
-  @override
-  @JsonKey()
-  final bool enabled;
-
-  @override
-  String toString() {
-    return 'DataSourceConfig(id: $id, name: $name, apiUrl: $apiUrl, method: $method, headers: $headers, queryParams: $queryParams, fieldMapping: $fieldMapping, detailMode: $detailMode, detailUrlTemplate: $detailUrlTemplate, enabled: $enabled)';
-  }
-
-  @override
-  bool operator ==(Object other) {
-    return identical(this, other) ||
-        (other.runtimeType == runtimeType &&
-            other is _$DataSourceConfigImpl &&
-            (identical(other.id, id) || other.id == id) &&
-            (identical(other.name, name) || other.name == name) &&
-            (identical(other.apiUrl, apiUrl) || other.apiUrl == apiUrl) &&
-            (identical(other.method, method) || other.method == method) &&
-            const DeepCollectionEquality().equals(other._headers, _headers) &&
-            const DeepCollectionEquality().equals(
-              other._queryParams,
-              _queryParams,
-            ) &&
-            (identical(other.fieldMapping, fieldMapping) ||
-                other.fieldMapping == fieldMapping) &&
-            (identical(other.detailMode, detailMode) ||
-                other.detailMode == detailMode) &&
-            (identical(other.detailUrlTemplate, detailUrlTemplate) ||
-                other.detailUrlTemplate == detailUrlTemplate) &&
-            (identical(other.enabled, enabled) || other.enabled == enabled));
-  }
-
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  int get hashCode => Object.hash(
-    runtimeType,
-    id,
-    name,
-    apiUrl,
-    method,
-    const DeepCollectionEquality().hash(_headers),
-    const DeepCollectionEquality().hash(_queryParams),
-    fieldMapping,
-    detailMode,
-    detailUrlTemplate,
-    enabled,
-  );
-
-  /// Create a copy of DataSourceConfig
-  /// with the given fields replaced by the non-null parameter values.
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  @override
-  @pragma('vm:prefer-inline')
-  _$$DataSourceConfigImplCopyWith<_$DataSourceConfigImpl> get copyWith =>
-      __$$DataSourceConfigImplCopyWithImpl<_$DataSourceConfigImpl>(
-        this,
-        _$identity,
-      );
-
-  @override
-  Map<String, dynamic> toJson() {
-    return _$$DataSourceConfigImplToJson(this);
-  }
+/// 唯一 id（本地生成，用于数据库主键 / 去重标记）
+@override final  String id;
+/// 数据源名称（用户自定义，展示在 Tab 上）
+@override final  String name;
+/// 数据源类型（json = JSONPath 配置源；rss = RSS/Atom 订阅源）
+@override@JsonKey()@DataSourceTypeConverter() final  DataSourceType sourceType;
+/// 请求地址。json 源支持占位符 {page} 和 {pageSize}（分页时自动替换）；
+/// rss 源即 feed 的 URL。
+@override final  String apiUrl;
+/// 请求方法，默认 GET（仅 json 源使用）
+@override@JsonKey() final  String method;
+/// 静态请求头（有些 API 需要带 token / 自定义 UA，仅 json 源使用）
+ final  Map<String, String>? _headers;
+/// 静态请求头（有些 API 需要带 token / 自定义 UA，仅 json 源使用）
+@override Map<String, String>? get headers {
+  final value = _headers;
+  if (value == null) return null;
+  if (_headers is EqualUnmodifiableMapView) return _headers;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(value);
 }
 
-abstract class _DataSourceConfig implements DataSourceConfig {
-  const factory _DataSourceConfig({
-    required final String id,
-    required final String name,
-    required final String apiUrl,
-    final String method,
-    final Map<String, String>? headers,
-    final Map<String, String>? queryParams,
-    required final FieldMapping fieldMapping,
-    @DetailRenderModeConverter() final DetailRenderMode detailMode,
-    final String? detailUrlTemplate,
-    final bool enabled,
-  }) = _$DataSourceConfigImpl;
-
-  factory _DataSourceConfig.fromJson(Map<String, dynamic> json) =
-      _$DataSourceConfigImpl.fromJson;
-
-  /// 唯一 id（本地生成，用于数据库主键 / 去重标记）
-  @override
-  String get id;
-
-  /// 数据源名称（用户自定义，展示在 Tab 上）
-  @override
-  String get name;
-
-  /// 请求地址，支持占位符 {page} 和 {pageSize}（分页时自动替换）
-  @override
-  String get apiUrl;
-
-  /// 请求方法，默认 GET
-  @override
-  String get method;
-
-  /// 静态请求头（有些 API 需要带 token / 自定义 UA）
-  @override
-  Map<String, String>? get headers;
-
-  /// 静态 query 参数（拼在 URL 后面，不参与 JSONPath）
-  @override
-  Map<String, String>? get queryParams;
-
-  /// 核心：字段映射规则
-  @override
-  FieldMapping get fieldMapping;
-
-  /// 详情页渲染方式
-  @override
-  @DetailRenderModeConverter()
-  DetailRenderMode get detailMode;
-
-  /// 详情页 URL 拼接模板（如果详情走 webview 且链接需要二次拼接）
-  @override
-  String? get detailUrlTemplate;
-
-  /// 是否启用（关闭后不参与信息流聚合）
-  @override
-  bool get enabled;
-
-  /// Create a copy of DataSourceConfig
-  /// with the given fields replaced by the non-null parameter values.
-  @override
-  @JsonKey(includeFromJson: false, includeToJson: false)
-  _$$DataSourceConfigImplCopyWith<_$DataSourceConfigImpl> get copyWith =>
-      throw _privateConstructorUsedError;
+/// 静态 query 参数（拼在 URL 后面，不参与 JSONPath，仅 json 源使用）
+ final  Map<String, String>? _queryParams;
+/// 静态 query 参数（拼在 URL 后面，不参与 JSONPath，仅 json 源使用）
+@override Map<String, String>? get queryParams {
+  final value = _queryParams;
+  if (value == null) return null;
+  if (_queryParams is EqualUnmodifiableMapView) return _queryParams;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableMapView(value);
 }
+
+/// 核心：字段映射规则（仅 json 源使用；rss 源为 null）
+@override final  FieldMapping? fieldMapping;
+/// 详情页渲染方式
+@override@JsonKey()@DetailRenderModeConverter() final  DetailRenderMode detailMode;
+/// 详情页 URL 拼接模板（如果详情走 webview 且链接需要二次拼接）
+@override final  String? detailUrlTemplate;
+/// 是否启用（关闭后不参与信息流聚合）
+@override@JsonKey() final  bool enabled;
+
+/// Create a copy of DataSourceConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$DataSourceConfigCopyWith<_DataSourceConfig> get copyWith => __$DataSourceConfigCopyWithImpl<_DataSourceConfig>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$DataSourceConfigToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DataSourceConfig&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.sourceType, sourceType) || other.sourceType == sourceType)&&(identical(other.apiUrl, apiUrl) || other.apiUrl == apiUrl)&&(identical(other.method, method) || other.method == method)&&const DeepCollectionEquality().equals(other._headers, _headers)&&const DeepCollectionEquality().equals(other._queryParams, _queryParams)&&(identical(other.fieldMapping, fieldMapping) || other.fieldMapping == fieldMapping)&&(identical(other.detailMode, detailMode) || other.detailMode == detailMode)&&(identical(other.detailUrlTemplate, detailUrlTemplate) || other.detailUrlTemplate == detailUrlTemplate)&&(identical(other.enabled, enabled) || other.enabled == enabled));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,name,sourceType,apiUrl,method,const DeepCollectionEquality().hash(_headers),const DeepCollectionEquality().hash(_queryParams),fieldMapping,detailMode,detailUrlTemplate,enabled);
+
+@override
+String toString() {
+  return 'DataSourceConfig(id: $id, name: $name, sourceType: $sourceType, apiUrl: $apiUrl, method: $method, headers: $headers, queryParams: $queryParams, fieldMapping: $fieldMapping, detailMode: $detailMode, detailUrlTemplate: $detailUrlTemplate, enabled: $enabled)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$DataSourceConfigCopyWith<$Res> implements $DataSourceConfigCopyWith<$Res> {
+  factory _$DataSourceConfigCopyWith(_DataSourceConfig value, $Res Function(_DataSourceConfig) _then) = __$DataSourceConfigCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String name,@DataSourceTypeConverter() DataSourceType sourceType, String apiUrl, String method, Map<String, String>? headers, Map<String, String>? queryParams, FieldMapping? fieldMapping,@DetailRenderModeConverter() DetailRenderMode detailMode, String? detailUrlTemplate, bool enabled
+});
+
+
+@override $FieldMappingCopyWith<$Res>? get fieldMapping;
+
+}
+/// @nodoc
+class __$DataSourceConfigCopyWithImpl<$Res>
+    implements _$DataSourceConfigCopyWith<$Res> {
+  __$DataSourceConfigCopyWithImpl(this._self, this._then);
+
+  final _DataSourceConfig _self;
+  final $Res Function(_DataSourceConfig) _then;
+
+/// Create a copy of DataSourceConfig
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? sourceType = null,Object? apiUrl = null,Object? method = null,Object? headers = freezed,Object? queryParams = freezed,Object? fieldMapping = freezed,Object? detailMode = null,Object? detailUrlTemplate = freezed,Object? enabled = null,}) {
+  return _then(_DataSourceConfig(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,sourceType: null == sourceType ? _self.sourceType : sourceType // ignore: cast_nullable_to_non_nullable
+as DataSourceType,apiUrl: null == apiUrl ? _self.apiUrl : apiUrl // ignore: cast_nullable_to_non_nullable
+as String,method: null == method ? _self.method : method // ignore: cast_nullable_to_non_nullable
+as String,headers: freezed == headers ? _self._headers : headers // ignore: cast_nullable_to_non_nullable
+as Map<String, String>?,queryParams: freezed == queryParams ? _self._queryParams : queryParams // ignore: cast_nullable_to_non_nullable
+as Map<String, String>?,fieldMapping: freezed == fieldMapping ? _self.fieldMapping : fieldMapping // ignore: cast_nullable_to_non_nullable
+as FieldMapping?,detailMode: null == detailMode ? _self.detailMode : detailMode // ignore: cast_nullable_to_non_nullable
+as DetailRenderMode,detailUrlTemplate: freezed == detailUrlTemplate ? _self.detailUrlTemplate : detailUrlTemplate // ignore: cast_nullable_to_non_nullable
+as String?,enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+/// Create a copy of DataSourceConfig
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$FieldMappingCopyWith<$Res>? get fieldMapping {
+    if (_self.fieldMapping == null) {
+    return null;
+  }
+
+  return $FieldMappingCopyWith<$Res>(_self.fieldMapping!, (value) {
+    return _then(_self.copyWith(fieldMapping: value));
+  });
+}
+}
+
+// dart format on

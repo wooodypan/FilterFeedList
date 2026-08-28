@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/data_source_config.dart';
 import '../models/feed_article.dart';
 import '../plugin/plugin_feed_source.dart';
 import '../services/feed_source.dart';
@@ -43,19 +44,25 @@ class FeedState {
 
 /// 把所有"启用中"的数据源汇总成统一的 [FeedSource] 列表：
 /// - JSONPath 声明式配置 → [JsonPathFeedSource]
+/// - RSS/Atom 订阅配置 → [RssFeedSource]
 /// - 已安装的 JS 插件 → [JsPluginFeedSource]
 ///
-/// UI 和 FeedNotifier 只认 [FeedSource]，从而两套体系无缝并存。
+/// UI 和 FeedNotifier 只认 [FeedSource]，从而三套体系无缝并存。
 final allFeedSourcesProvider = Provider<List<FeedSource>>((ref) {
   final configs = ref.watch(dataSourcesProvider).valueOrNull ?? [];
   final plugins = ref.watch(installedPluginsProvider).valueOrNull ?? [];
   final repo = ref.watch(feedRepositoryProvider);
+  final rssRepo = ref.watch(rssFeedRepositoryProvider);
   final pluginRepo = ref.watch(pluginFeedRepositoryProvider);
 
   return [
+    // 同一张表里的配置按 sourceType 分流到各自的实现
     ...configs
-        .where((c) => c.enabled)
+        .where((c) => c.enabled && c.sourceType == DataSourceType.json)
         .map((c) => JsonPathFeedSource(config: c, repo: repo)),
+    ...configs
+        .where((c) => c.enabled && c.sourceType == DataSourceType.rss)
+        .map((c) => RssFeedSource(config: c, repo: rssRepo)),
     ...plugins
         .where((p) => p.enabled)
         .map((p) => JsPluginFeedSource(plugin: p, repo: pluginRepo)),
@@ -66,8 +73,8 @@ final allFeedSourcesProvider = Provider<List<FeedSource>>((ref) {
 /// key 用 FeedSource 本身：底层配置/脚本被改了 -> 对象变了 -> 自动重建并重新拉取。
 final feedTabProvider =
     StateNotifierProvider.family<FeedNotifier, FeedState, FeedSource>(
-  (ref, source) => FeedNotifier([source]),
-);
+      (ref, source) => FeedNotifier([source]),
+    );
 
 /// 聚合模式的信息流：合并所有启用的数据源（JSONPath + JS 插件）。
 /// 非 family 的普通 provider，依赖 allFeedSourcesProvider，

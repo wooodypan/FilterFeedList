@@ -67,15 +67,18 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
     _apiUrlC.text = c.apiUrl;
     _method = c.method;
     _detailMode = c.detailMode;
+    // RSS 源没有字段映射（本页也只编辑 JSONPath 源），可空时跳过这部分
     final m = c.fieldMapping;
-    _listPathC.text = m.listPath;
-    _titlePathC.text = m.titlePath;
-    _thumbPathC.text = m.thumbPath;
-    _summaryPathC.text = m.summaryPath ?? '';
-    _authorPathC.text = m.authorPath ?? '';
-    _publishTimeC.text = m.publishTimePath ?? '';
-    _detailUrlPathC.text = m.detailUrlPath ?? '';
-    _contentPathC.text = m.contentPath ?? '';
+    if (m != null) {
+      _listPathC.text = m.listPath;
+      _titlePathC.text = m.titlePath;
+      _thumbPathC.text = m.thumbPath;
+      _summaryPathC.text = m.summaryPath ?? '';
+      _authorPathC.text = m.authorPath ?? '';
+      _publishTimeC.text = m.publishTimePath ?? '';
+      _detailUrlPathC.text = m.detailUrlPath ?? '';
+      _contentPathC.text = m.contentPath ?? '';
+    }
     c.headers?.forEach((k, v) => _headers.add(_KvRow(k, v)));
     c.queryParams?.forEach((k, v) => _queryParams.add(_KvRow(k, v)));
   }
@@ -173,10 +176,9 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
     });
     final temp = _buildConfig(id: 'preview');
     try {
-      final articles = await ref.read(feedRepositoryProvider).fetchFeed(
-            temp,
-            page: 1,
-          );
+      final articles = await ref
+          .read(feedRepositoryProvider)
+          .fetchFeed(temp, page: 1);
       setState(() {
         _preview = articles.take(3).toList();
       });
@@ -192,8 +194,8 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
   /// 保存配置
   Future<void> _save() async {
     if (!_validate()) return;
-    final id = widget.initial?.id ??
-        DateTime.now().microsecondsSinceEpoch.toString();
+    final id =
+        widget.initial?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
     final config = _buildConfig(id: id);
     await ref.read(dataSourcesProvider.notifier).upsert(config);
     if (mounted) {
@@ -204,8 +206,7 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
 
   void _showMsg(String msg) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
@@ -213,12 +214,7 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.initial == null ? '新增数据源' : '编辑数据源'),
-        actions: [
-          TextButton(
-            onPressed: _save,
-            child: const Text('保存'),
-          ),
-        ],
+        actions: [TextButton(onPressed: _save, child: const Text('保存'))],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -247,24 +243,49 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
               ),
               const SizedBox(height: 12),
               const Divider(),
-              const Text('字段映射（核心）',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
-              _textField(_listPathC, 'listPath（定位数组，如 data.list）',
-                  required: true, validator: Validators.jsonPath),
-              _textField(_titlePathC, 'titlePath（标题，如 title）',
-                  required: true, validator: Validators.jsonPath),
-              _textField(_thumbPathC, 'thumbPath（缩略图，如 thumb 或 images[0]）',
-                  required: true, validator: Validators.jsonPath),
-              _textField(_summaryPathC, 'summaryPath（摘要，选填）',
-                  validator: Validators.jsonPath),
-              _textField(_authorPathC, 'authorPath（作者，选填）',
-                  validator: Validators.jsonPath),
-              _textField(_publishTimeC, 'publishTimePath（时间，选填）',
-                  validator: Validators.jsonPath),
+              const Text(
+                '字段映射（核心）',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              _textField(
+                _listPathC,
+                'listPath（定位数组，如 data.list）',
+                required: true,
+                validator: Validators.jsonPath,
+              ),
+              _textField(
+                _titlePathC,
+                'titlePath（标题，如 title）',
+                required: true,
+                validator: Validators.jsonPath,
+              ),
+              _textField(
+                _thumbPathC,
+                'thumbPath（缩略图，如 thumb 或 images[0]）',
+                required: true,
+                validator: Validators.jsonPath,
+              ),
+              _textField(
+                _summaryPathC,
+                'summaryPath（摘要，选填）',
+                validator: Validators.jsonPath,
+              ),
+              _textField(
+                _authorPathC,
+                'authorPath（作者，选填）',
+                validator: Validators.jsonPath,
+              ),
+              _textField(
+                _publishTimeC,
+                'publishTimePath（时间，选填）',
+                validator: Validators.jsonPath,
+              ),
               const Divider(),
               // 详情渲染模式
-              const Text('详情页渲染方式',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                '详情页渲染方式',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               RadioListTile<DetailRenderMode>(
                 title: const Text('WebView（加载详情链接）'),
                 value: DetailRenderMode.webview,
@@ -278,11 +299,17 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
                 onChanged: (v) => setState(() => _detailMode = v!),
               ),
               if (_detailMode == DetailRenderMode.webview)
-                _textField(_detailUrlPathC, 'detailUrlPath（详情链接字段，如 url）',
-                    validator: Validators.jsonPath),
+                _textField(
+                  _detailUrlPathC,
+                  'detailUrlPath（详情链接字段，如 url）',
+                  validator: Validators.jsonPath,
+                ),
               if (_detailMode == DetailRenderMode.native)
-                _textField(_contentPathC, 'contentPath（正文字段，如 content）',
-                    validator: Validators.jsonPath),
+                _textField(
+                  _contentPathC,
+                  'contentPath（正文字段，如 content）',
+                  validator: Validators.jsonPath,
+                ),
               const Divider(),
               // 动态 headers
               _KvEditor(
@@ -322,10 +349,7 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
                 ),
               ),
               // 预览结果
-              _PreviewSection(
-                preview: _preview,
-                error: _previewError,
-              ),
+              _PreviewSection(preview: _preview, error: _previewError),
             ],
           ),
         ),
@@ -350,7 +374,8 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
           hintText: hint,
           border: const OutlineInputBorder(),
         ),
-        validator: validator ??
+        validator:
+            validator ??
             (required
                 ? (v) => v == null || v.trim().isEmpty ? '该项必填' : null
                 : null),
@@ -461,8 +486,10 @@ class _PreviewSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('解析失败',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+            const Text(
+              '解析失败',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+            ),
             const SizedBox(height: 6),
             Text(error!, style: const TextStyle(fontSize: 12)),
           ],
@@ -482,17 +509,29 @@ class _PreviewSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('解析成功，预览前 ${preview!.length} 条：',
-              style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            '解析成功，预览前 ${preview!.length} 条：',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          ...preview!.map((a) => ListTile(
-                dense: true,
-                leading: a.thumbUrl.isEmpty
-                    ? const Icon(Icons.image, size: 32)
-                    : null,
-                title: Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle: Text(a.summary ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
-              )),
+          ...preview!.map(
+            (a) => ListTile(
+              dense: true,
+              leading: a.thumbUrl.isEmpty
+                  ? const Icon(Icons.image, size: 32)
+                  : null,
+              title: Text(
+                a.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                a.summary ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -22,6 +22,10 @@ class GenericFeedParser {
     DataSourceConfig config,
   ) {
     final mapping = config.fieldMapping;
+    // 只有 JSONPath 配置源才带映射规则；RSS 源走 RssFeedParser，不该进这里
+    if (mapping == null) {
+      throw FeedParseException('该数据源没有配置字段映射规则（不是 JSONPath 配置源）');
+    }
 
     // 1) 先按 listPath 定位数组
     final listRaw = JsonPathResolver.resolve(responseJson, mapping.listPath);
@@ -33,39 +37,50 @@ class GenericFeedParser {
     }
 
     // 2) 遍历数组每一行，套用相对路径规则
-    final articles = listRaw.map<FeedArticle?>((item) {
-      // 数组里每行应该是个 Map；不是 Map 的脏数据跳过
-      if (item is! Map) return null;
+    final articles = listRaw
+        .map<FeedArticle?>((item) {
+          // 数组里每行应该是个 Map；不是 Map 的脏数据跳过
+          if (item is! Map) return null;
 
-      final title = JsonPathResolver.resolveAsString(item, mapping.titlePath);
-      // title 为空 -> 丢弃这条脏数据
-      if (title.isEmpty) return null;
+          final title = JsonPathResolver.resolveAsString(
+            item,
+            mapping.titlePath,
+          );
+          // title 为空 -> 丢弃这条脏数据
+          if (title.isEmpty) return null;
 
-      final thumb = _resolveThumb(item, mapping.thumbPath);
+          final thumb = _resolveThumb(item, mapping.thumbPath);
 
-      // id 优先取 uniqueIdPath，否则用 title+thumb 兜底算 md5
-      final id = mapping.uniqueIdPath != null
-          ? JsonPathResolver.resolveAsString(item, mapping.uniqueIdPath)
-          : FeedArticle.fallbackId(title, thumb);
+          // id 优先取 uniqueIdPath，否则用 title+thumb 兜底算 md5
+          final id = mapping.uniqueIdPath != null
+              ? JsonPathResolver.resolveAsString(item, mapping.uniqueIdPath)
+              : FeedArticle.fallbackId(title, thumb);
 
-      return FeedArticle(
-        id: id,
-        title: title,
-        thumbUrl: thumb,
-        summary: JsonPathResolver.resolveAsString(item, mapping.summaryPath),
-        author: JsonPathResolver.resolveAsString(item, mapping.authorPath),
-        publishTime:
-            JsonPathResolver.resolveAsString(item, mapping.publishTimePath),
-        // 只有原生渲染模式才关心正文 HTML
-        contentHtml: mapping.contentPath != null
-            ? JsonPathResolver.resolveAsString(item, mapping.contentPath)
-            : null,
-        detailUrl: mapping.detailUrlPath != null
-            ? JsonPathResolver.resolveAsString(item, mapping.detailUrlPath)
-            : null,
-        sourceId: config.id,
-      );
-    }).whereType<FeedArticle>().toList();
+          return FeedArticle(
+            id: id,
+            title: title,
+            thumbUrl: thumb,
+            summary: JsonPathResolver.resolveAsString(
+              item,
+              mapping.summaryPath,
+            ),
+            author: JsonPathResolver.resolveAsString(item, mapping.authorPath),
+            publishTime: JsonPathResolver.resolveAsString(
+              item,
+              mapping.publishTimePath,
+            ),
+            // 只有原生渲染模式才关心正文 HTML
+            contentHtml: mapping.contentPath != null
+                ? JsonPathResolver.resolveAsString(item, mapping.contentPath)
+                : null,
+            detailUrl: mapping.detailUrlPath != null
+                ? JsonPathResolver.resolveAsString(item, mapping.detailUrlPath)
+                : null,
+            sourceId: config.id,
+          );
+        })
+        .whereType<FeedArticle>()
+        .toList();
 
     return articles;
   }

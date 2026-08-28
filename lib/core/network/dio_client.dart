@@ -26,13 +26,13 @@ class DioClient {
     );
 
     // 日志拦截器：开发期能直接看到请求/响应，方便排查第三方 API 字段结构
-    dio.interceptors.add(
-      LogInterceptor(
-        requestBody: false, // 请求体一般较大，默认不打印
-        responseBody: false, // 响应体同理，需要时打开
-        logPrint: (o) => Logger().t(o.toString()),
-      ),
-    );
+    // dio.interceptors.add(
+    //   LogInterceptor(
+    //     requestBody: false, // 请求体一般较大，默认不打印
+    //     responseBody: false, // 响应体同理，需要时打开
+    //     logPrint: (o) => Logger().t(o.toString()),
+    //   ),
+    // );
 
     return dio;
   }

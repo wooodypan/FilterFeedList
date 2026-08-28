@@ -55,15 +55,24 @@ class DataSourceListPage extends ConsumerWidget {
 
     final sources = sourcesAsync.value!;
     final plugins = pluginsAsync.value!;
+    // 按类型拆成两段（同存一张表，靠 sourceType 区分）
+    final rssSources = sources.where((s) => s.sourceType == DataSourceType.rss);
+    final jsonSources = sources.where(
+      (s) => s.sourceType == DataSourceType.json,
+    );
     if (sources.isEmpty && plugins.isEmpty) {
       return const Center(child: Text('还没有数据源，点右下角 + 添加一个'));
     }
 
     return ListView(
       children: [
-        if (sources.isNotEmpty) ...[
+        if (rssSources.isNotEmpty) ...[
+          const _SectionHeader('RSS 订阅'),
+          ...rssSources.map((s) => _SourceTile(config: s)),
+        ],
+        if (jsonSources.isNotEmpty) ...[
           const _SectionHeader('API 数据源'),
-          ...sources.map((s) => _SourceTile(config: s)),
+          ...jsonSources.map((s) => _SourceTile(config: s)),
         ],
         if (plugins.isNotEmpty) ...[
           const _SectionHeader('插件'),
@@ -88,7 +97,17 @@ class DataSourceListPage extends ConsumerWidget {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
-            // 方式一：手动配置（原有的表单流程）
+            // 方式一：订阅 RSS（填一个 feed 地址即可）
+            ListTile(
+              leading: const Icon(Icons.rss_feed),
+              title: const Text('订阅 RSS'),
+              subtitle: const Text('输入 RSS / Atom 地址，一键订阅'),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                context.push('/settings/sources/rss-edit');
+              },
+            ),
+            // 方式二：手动配置（原有的表单流程）
             ListTile(
               leading: const Icon(Icons.tune),
               title: const Text('手动配置'),
@@ -98,7 +117,7 @@ class DataSourceListPage extends ConsumerWidget {
                 context.push('/settings/sources/edit');
               },
             ),
-            // 方式二：安装插件（下载 JS 脚本）
+            // 方式三：安装插件（下载 JS 脚本）
             ListTile(
               leading: const Icon(Icons.download),
               title: const Text('安装插件'),
@@ -186,9 +205,7 @@ class _InstallPluginDialogState extends ConsumerState<_InstallPluginDialog> {
       // 先拿 messenger 再关对话框，避免 context 失效
       final messenger = ScaffoldMessenger.of(context);
       Navigator.of(context).pop();
-      messenger.showSnackBar(
-        SnackBar(content: Text('插件「${plugin.name}」安装成功')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('插件「${plugin.name}」安装成功')));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -337,8 +354,7 @@ class _InstallPluginDialogState extends ConsumerState<_InstallPluginDialog> {
       ),
       actions: [
         TextButton(
-          onPressed:
-              _loading ? null : () => Navigator.of(context).pop(),
+          onPressed: _loading ? null : () => Navigator.of(context).pop(),
           child: const Text('取消'),
         ),
         FilledButton(
@@ -482,7 +498,9 @@ class _EditPluginDialogState extends ConsumerState<_EditPluginDialog> {
     super.initState();
     // 初始化为当前插件的值，用户在此基础上改
     _nameController = TextEditingController(text: widget.plugin.name);
-    _scriptController = TextEditingController(text: widget.plugin.scriptContent);
+    _scriptController = TextEditingController(
+      text: widget.plugin.scriptContent,
+    );
   }
 
   @override
@@ -516,10 +534,7 @@ class _EditPluginDialogState extends ConsumerState<_EditPluginDialog> {
     try {
       // 用 copyWith 生成改后的实例：id / manifest / 版本号等都保持原值，
       // 只换 name 和 scriptContent，然后按 id 覆盖写入。
-      final updated = widget.plugin.copyWith(
-        name: name,
-        scriptContent: script,
-      );
+      final updated = widget.plugin.copyWith(name: name, scriptContent: script);
       await ref.read(installedPluginsProvider.notifier).update(updated);
 
       if (!mounted) return;
@@ -558,8 +573,10 @@ class _EditPluginDialogState extends ConsumerState<_EditPluginDialog> {
               ),
               const SizedBox(height: 12),
               // 脚本正文：等宽字体 + 多行，方便看 JS 结构；至少 8 行高
-              const Text('脚本正文',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              const Text(
+                '脚本正文',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 4),
               TextField(
                 controller: _scriptController,
@@ -611,17 +628,20 @@ class _SourceTile extends ConsumerWidget {
   final DataSourceConfig config;
   const _SourceTile({required this.config});
 
+  /// 编辑入口按类型分流：RSS 源走精简表单，JSONPath 源走完整映射表单
+  String get _editRoute => config.sourceType == DataSourceType.rss
+      ? '/settings/sources/rss-edit'
+      : '/settings/sources/edit';
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return ListTile(
       // 启用开关
       leading: Checkbox(
         value: config.enabled,
-        onChanged: (v) =>
-            ref.read(dataSourcesProvider.notifier).setEnabled(
-                  config.id,
-                  v ?? false,
-                ),
+        onChanged: (v) => ref
+            .read(dataSourcesProvider.notifier)
+            .setEnabled(config.id, v ?? false),
       ),
       title: Text(config.name),
       subtitle: Text(
@@ -635,8 +655,7 @@ class _SourceTile extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.edit),
             tooltip: '编辑',
-            onPressed: () =>
-                context.push('/settings/sources/edit', extra: config),
+            onPressed: () => context.push(_editRoute, extra: config),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline),
@@ -645,7 +664,7 @@ class _SourceTile extends ConsumerWidget {
           ),
         ],
       ),
-      onTap: () => context.push('/settings/sources/edit', extra: config),
+      onTap: () => context.push(_editRoute, extra: config),
     );
   }
 

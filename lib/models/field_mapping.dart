@@ -11,7 +11,7 @@ part 'field_mapping.g.dart';
 ///   例如 titlePath="title" 表示取 `行元素.title`。
 /// 这样同一套规则就能自动套用到数组里的每一项，不用重复写路径。
 @freezed
-class FieldMapping with _$FieldMapping {
+abstract class FieldMapping with _$FieldMapping {
   const factory FieldMapping({
     /// 定位数组的绝对路径（必填）。例如 "data.list"
     required String listPath,

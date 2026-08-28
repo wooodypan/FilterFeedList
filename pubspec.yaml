@@ -6,7 +6,7 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.7.2
+  sdk: ^3.8.0
 
 dependencies:
   flutter:
@@ -46,6 +46,9 @@ dependencies:
   # ===== md5：屏蔽词去重的兜底 id 计算 =====
   crypto: ^3.0.3
 
+  # ===== RSS/Atom 订阅源：只用它的 XML DOM 解析能力（feed 结构解析逻辑自研，见 rss_feed_parser.dart）=====
+  xml: ^6.5.0
+
   # ===== 中文分词：文字大爆炸（长按标题分词、滑动选择）=====
   # 纯 Dart 移植的 jieba，MIT 协议，全平台支持（含 macOS 开发机）。
   dart_jieba: ^1.0.1
@@ -56,8 +59,8 @@ dependencies:
   flutter_js: ^0.8.7
 
   # ===== freezed / json_serializable 运行时注解（生成代码在运行时需要）=====
-  freezed_annotation: ^2.4.4
-  json_annotation: ^4.9.0
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.12.0
   # 13.x 已迁移到 Built-in Kotlin，消除 KGP 弃用警告（API 兼容：SharePlus.instance.share(ShareParams)）
   share_plus: ^13.3.0
   url_launcher: ^6.3.2
@@ -71,7 +74,7 @@ dev_dependencies:
   # ===== 代码生成 =====
   build_runner: ^2.4.11
   # 数据模型：freezed（自带 json_serializable 支持 fromJson/toJson）
-  freezed: ^2.5.5
+  freezed: ^4.0.0
   json_serializable: ^6.8.0
   # 数据库：drift 代码生成
   drift_dev: ^2.19.0
