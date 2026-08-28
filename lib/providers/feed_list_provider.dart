@@ -105,27 +105,34 @@ class FeedNotifier extends StateNotifier<FeedState> {
       final all = <FeedArticle>[];
       for (final s in _sources) {
         final list = await s.fetchFeed(page: 1);
-        _pages[s.id] = 2; // 下一页从 2 开始
+        _pages[s.id] = 2; // 下一页从 2 开始（仅对分页源有意义）
         all.addAll(list);
       }
       state = state.copyWith(
         loading: false,
         articles: all,
-        // 没有任何源返回数据，认为没有更多
-        hasMore: _sources.isNotEmpty && all.isNotEmpty,
+        // 只有存在分页源时才可能有"下一页"（RSS 等全量源不参与加载更多）
+        hasMore: _sources.any((s) => s.supportsPagination) && all.isNotEmpty,
       );
     } catch (e) {
       state = state.copyWith(loading: false, error: e.toString());
     }
   }
 
-  /// 上拉加载更多
+  /// 上拉加载更多（只对分页源生效；RSS 等全量源在第 1 页已拿全，直接跳过）
   Future<void> loadMore() async {
     if (state.loadingMore || state.loading || !state.hasMore) return;
+    final paginatedSources = _sources
+        .where((s) => s.supportsPagination)
+        .toList();
+    if (paginatedSources.isEmpty) {
+      state = state.copyWith(hasMore: false);
+      return;
+    }
     state = state.copyWith(loadingMore: true);
     try {
       final more = <FeedArticle>[];
-      for (final s in _sources) {
+      for (final s in paginatedSources) {
         final p = _pages[s.id] ?? 1;
         final list = await s.fetchFeed(page: p);
         _pages[s.id] = p + 1;

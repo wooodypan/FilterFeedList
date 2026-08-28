@@ -9,6 +9,7 @@ import 'package:filter_flow/core/db/app_database.dart';
 import 'package:filter_flow/models/data_source_config.dart';
 import 'package:filter_flow/models/field_mapping.dart';
 import 'package:filter_flow/providers/core_providers.dart';
+import 'package:filter_flow/providers/feed_list_provider.dart';
 import 'package:filter_flow/ui/feed/feed_list_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -28,6 +29,38 @@ const _atomXml = '''
     <author><name>阮一峰</name></author>
     <content type="html">&lt;p&gt;本周内容&lt;/p&gt;</content>
   </entry>
+  <entry>
+    <title>工具性与实用性</title>
+    <link rel="alternate" href="https://www.ruanyifeng.com/blog/2026/01/post-99.html" />
+    <id>tag:www.ruanyifeng.com,2026:blog.post.99</id>
+    <published>2026-01-01T08:30:00+08:00</published>
+    <author><name>阮一峰</name></author>
+    <content type="html">&lt;p&gt;旧文重读&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>RSS 仍然是最好的订阅方式</title>
+    <link rel="alternate" href="https://www.ruanyifeng.com/blog/2025/12/post-98.html" />
+    <id>tag:www.ruanyifeng.com,2026:blog.post.98</id>
+    <published>2025-12-31T08:30:00+08:00</published>
+    <author><name>阮一峰</name></author>
+    <content type="html">&lt;p&gt;谈谈 RSS&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>每周软件更新</title>
+    <link rel="alternate" href="https://www.ruanyifeng.com/blog/2025/12/post-97.html" />
+    <id>tag:www.ruanyifeng.com,2026:blog.post.97</id>
+    <published>2025-12-30T08:30:00+08:00</published>
+    <author><name>阮一峰</name></author>
+    <content type="html">&lt;p&gt;软件更新&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>数字极简主义实践</title>
+    <link rel="alternate" href="https://www.ruanyifeng.com/blog/2025/12/post-96.html" />
+    <id>tag:www.ruanyifeng.com,2026:blog.post.96</id>
+    <published>2025-12-29T08:30:00+08:00</published>
+    <author><name>阮一峰</name></author>
+    <content type="html">&lt;p&gt;极简生活&lt;/p&gt;</content>
+  </entry>
 </feed>
 ''';
 
@@ -42,22 +75,33 @@ const _hnJson = '''
 
 /// 按 URL 路由的假 HTTP 适配器：atom.xml 回 Atom 报文，HN 回 JSON。
 class _FakeAdapter implements HttpClientAdapter {
+  int callCount = 0;
+
   @override
   Future<ResponseBody> fetch(
     RequestOptions options,
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    callCount++;
     final url = options.uri.toString();
     if (url.contains('atom.xml')) {
-      return ResponseBody.fromString(_atomXml, 200, headers: {
-        Headers.contentTypeHeader: ['application/xml'],
-      });
+      return ResponseBody.fromString(
+        _atomXml,
+        200,
+        headers: {
+          Headers.contentTypeHeader: ['application/xml'],
+        },
+      );
     }
     if (url.contains('hn.algolia')) {
-      return ResponseBody.fromString(_hnJson, 200, headers: {
-        Headers.contentTypeHeader: ['application/json'],
-      });
+      return ResponseBody.fromString(
+        _hnJson,
+        200,
+        headers: {
+          Headers.contentTypeHeader: ['application/json'],
+        },
+      );
     }
     return ResponseBody.fromString('not found', 404);
   }
@@ -87,10 +131,15 @@ const _hnSource = DataSourceConfig(
   ),
 );
 
-Future<AppDatabase> _seedDb({List<String> keywords = const []}) async {
+Future<AppDatabase> _seedDb({
+  List<String> keywords = const [],
+  bool withHnSource = true,
+}) async {
   final db = AppDatabase(executor: NativeDatabase.memory());
   await db.upsertDataSource(_rssSource);
-  await db.upsertDataSource(_hnSource);
+  if (withHnSource) {
+    await db.upsertDataSource(_hnSource);
+  }
   for (final w in keywords) {
     await db.addBlockedKeyword(w);
   }
@@ -98,12 +147,12 @@ Future<AppDatabase> _seedDb({List<String> keywords = const []}) async {
 }
 
 Widget _buildApp(AppDatabase db, Dio dio) => ProviderScope(
-      overrides: [
-        appDatabaseProvider.overrideWithValue(db),
-        dioProvider.overrideWithValue(dio),
-      ],
-      child: const MaterialApp(home: FeedListPage()),
-    );
+  overrides: [
+    appDatabaseProvider.overrideWithValue(db),
+    dioProvider.overrideWithValue(dio),
+  ],
+  child: const MaterialApp(home: FeedListPage()),
+);
 
 void main() {
   testWidgets('聚合模式：RSS 源与 JSON 源混合渲染（全链路）', (tester) async {
@@ -159,5 +208,30 @@ void main() {
       await tester.pump(const Duration(milliseconds: 60));
     }
     expect(find.text('科技爱好者周刊（第 100 期）'), findsOneWidget);
+  });
+
+  testWidgets('RSS 全量源不参与加载更多：底部直接显示"没有更多了"，不再发请求', (tester) async {
+    SharedPreferences.setMockInitialValues({'aggregate_mode': true});
+    final db = await _seedDb(withHnSource: false);
+    addTearDown(db.close);
+    final adapter = _FakeAdapter();
+    final dio = Dio()..httpClientAdapter = adapter;
+
+    await tester.pumpWidget(_buildApp(db, dio));
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    // 滚到底部：footer 是"没有更多了"，而不是"加载更多"转圈
+    await tester.drag(find.byType(ListView), const Offset(0, -800));
+    await tester.pumpAndSettle();
+    expect(find.text('— 没有更多了 —'), findsOneWidget);
+
+    // 直接调 loadMore（状态机层）：RSS 无分页语义，不应发出任何网络请求
+    final context = tester.element(find.byType(FeedListPage));
+    final container = ProviderScope.containerOf(context);
+    await container.read(feedAggregateProvider.notifier).loadMore();
+    await tester.pumpAndSettle();
+    expect(adapter.callCount, 1);
   });
 }

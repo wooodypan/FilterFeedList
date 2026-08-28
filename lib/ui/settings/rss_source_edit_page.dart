@@ -82,8 +82,7 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
     });
     final temp = _buildConfig(id: 'preview');
     try {
-      final articles =
-          await ref.read(rssFeedRepositoryProvider).fetchFeed(temp, page: 1);
+      final articles = await ref.read(rssFeedRepositoryProvider).fetchFeed(temp);
       setState(() {
         _preview = articles.take(3).toList();
       });

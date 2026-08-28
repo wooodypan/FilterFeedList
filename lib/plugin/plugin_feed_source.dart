@@ -35,6 +35,9 @@ class JsPluginFeedSource implements FeedSource {
   String? get detailUrlTemplate => null;
 
   @override
+  bool get supportsPagination => true;
+
+  @override
   Future<List<FeedArticle>> fetchFeed({required int page, int pageSize = 20}) =>
       repo.fetchFeed(plugin, page: page, pageSize: pageSize);
 

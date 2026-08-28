@@ -27,6 +27,13 @@ abstract class FeedSource {
   /// 详情页 URL 拼接模板（webview 模式且需要二次拼接时用）
   String? get detailUrlTemplate;
 
+  /// 该源是否支持按页加载（true 时才参与 FeedNotifier 的"加载更多"）。
+  ///
+  /// JSON API 用 {page} 占位符翻页、JS 插件在 ctx 里拿 page，都是分页源；
+  /// RSS/Atom 一次请求就返回全部条目，没有"下一页"概念，返回 false ——
+  /// FeedNotifier 据此跳过它的加载更多，避免重复请求同一份全量数据。
+  bool get supportsPagination;
+
   /// 拉取某一页信息流（page 从 1 开始）
   Future<List<FeedArticle>> fetchFeed({required int page, int pageSize = 20});
 }
@@ -55,6 +62,9 @@ class JsonPathFeedSource implements FeedSource {
 
   @override
   String? get detailUrlTemplate => config.detailUrlTemplate;
+
+  @override
+  bool get supportsPagination => true;
 
   @override
   Future<List<FeedArticle>> fetchFeed({required int page, int pageSize = 20}) =>
@@ -99,8 +109,13 @@ class RssFeedSource implements FeedSource {
   String? get detailUrlTemplate => config.detailUrlTemplate;
 
   @override
+  bool get supportsPagination => false;
+
+  // page/pageSize 是接口要求的形参，RSS 没有分页语义，直接忽略：
+  // 每次调用都拉取并返回 feed 的全部条目（只在首次加载/下拉刷新时发生）。
+  @override
   Future<List<FeedArticle>> fetchFeed({required int page, int pageSize = 20}) =>
-      repo.fetchFeed(config, page: page, pageSize: pageSize);
+      repo.fetchFeed(config);
 
   /// 同 [JsonPathFeedSource]：基于 config 做相等判断。
   /// 注意必须实现——feedTabProvider 用 FeedSource 实例当 family key，
