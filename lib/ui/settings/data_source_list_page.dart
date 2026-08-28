@@ -97,6 +97,17 @@ class DataSourceListPage extends ConsumerWidget {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
+            // 引导：不知道订什么？打开推荐列表，可一键导入
+            ListTile(
+              leading: const Icon(Icons.explore),
+              title: const Text('不知道订阅什么？点击查看推荐'),
+              subtitle: const Text('浏览热门 RSS 源，一键导入'),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                context.push('/settings/sources/rss-recommend');
+              },
+            ),
+            const Divider(height: 1),
             // 方式一：订阅 RSS（填一个 feed 地址即可）
             ListTile(
               leading: const Icon(Icons.rss_feed),

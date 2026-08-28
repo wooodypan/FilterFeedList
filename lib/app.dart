@@ -5,11 +5,13 @@ import 'package:go_router/go_router.dart';
 import 'models/data_source_config.dart';
 import 'models/feed_article.dart';
 import 'services/feed_source.dart';
+import 'ui/common/webview_page.dart';
 import 'ui/detail/article_detail_page.dart';
 import 'ui/feed/feed_list_page.dart';
 import 'ui/settings/blocked_keyword_page.dart';
 import 'ui/settings/data_source_edit_page.dart';
 import 'ui/settings/data_source_list_page.dart';
+import 'ui/settings/rss_recommend_config.dart';
 import 'ui/settings/rss_source_edit_page.dart';
 import 'ui/settings/settings_page.dart';
 
@@ -47,9 +49,33 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/settings/sources/rss-edit',
-        builder: (context, state) => RssSourceEditPage(
-          // 编辑 RSS 订阅时同样通过 extra 传整份配置
-          initial: state.extra as DataSourceConfig?,
+        builder: (context, state) {
+          final extra = state.extra;
+          // 兼容两种传参：
+          // - DataSourceConfig：来自列表的「编辑」（整份配置）
+          // - String：来自「推荐订阅」页的「导入」（仅预填 feed 地址，名字让用户自己填）
+          if (extra is DataSourceConfig) {
+            return RssSourceEditPage(initial: extra);
+          }
+          if (extra is String) {
+            return RssSourceEditPage(presetUrl: extra);
+          }
+          return const RssSourceEditPage();
+        },
+      ),
+      GoRoute(
+        path: '/settings/sources/rss-recommend',
+        builder: (context, state) => CommonWebViewPage(
+          title: 'RSS 推荐订阅',
+          url: kRssRecommendUrl,
+          // 加载完成后注入脚本：给所有「文本以 http 开头」的链接右侧加「导入」按钮
+          injectScript: kRssRecommendInjectScript,
+          // JS 点「导入」时通过此通道把链接回传 Flutter，再跳到编辑页预填
+          jsChannels: {
+            'ImportRssChannel': (url) {
+              context.push('/settings/sources/rss-edit', extra: url);
+            },
+          },
         ),
       ),
       GoRoute(

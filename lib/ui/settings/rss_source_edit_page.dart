@@ -20,7 +20,10 @@ class RssSourceEditPage extends ConsumerStatefulWidget {
   /// 编辑时传入已存在的配置；新增时为 null
   final DataSourceConfig? initial;
 
-  const RssSourceEditPage({super.key, this.initial});
+  /// 从「推荐订阅」页导入时，仅预填 feed 地址；名称留空，让用户自己填写
+  final String? presetUrl;
+
+  const RssSourceEditPage({super.key, this.initial, this.presetUrl});
 
   @override
   ConsumerState<RssSourceEditPage> createState() => _RssSourceEditPageState();
@@ -47,6 +50,9 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
       _nameC.text = c.name;
       _urlC.text = c.apiUrl;
       _detailMode = c.detailMode;
+    } else if (widget.presetUrl != null) {
+      // 从「推荐订阅」导入：预填地址，名称留空让用户编辑
+      _urlC.text = widget.presetUrl!;
     } else {
       // 新增时预填示例源，降低上手成本
       _urlC.text = kExampleRssUrl;
@@ -82,7 +88,9 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
     });
     final temp = _buildConfig(id: 'preview');
     try {
-      final articles = await ref.read(rssFeedRepositoryProvider).fetchFeed(temp);
+      final articles = await ref
+          .read(rssFeedRepositoryProvider)
+          .fetchFeed(temp);
       setState(() {
         _preview = articles.take(3).toList();
       });
@@ -98,8 +106,8 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
   /// 保存配置
   Future<void> _save() async {
     if (!_validate()) return;
-    final id = widget.initial?.id ??
-        DateTime.now().microsecondsSinceEpoch.toString();
+    final id =
+        widget.initial?.id ?? DateTime.now().microsecondsSinceEpoch.toString();
     final config = _buildConfig(id: id);
     await ref.read(dataSourcesProvider.notifier).upsert(config);
     if (mounted) {
@@ -120,12 +128,7 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.initial == null ? '订阅 RSS' : '编辑 RSS 订阅'),
-        actions: [
-          TextButton(
-            onPressed: _save,
-            child: const Text('保存'),
-          ),
-        ],
+        actions: [TextButton(onPressed: _save, child: const Text('保存'))],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -141,8 +144,7 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
                   hintText: '如：阮一峰的网络日志',
                   border: OutlineInputBorder(),
                 ),
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? '该项必填' : null,
+                validator: (v) => v == null || v.trim().isEmpty ? '该项必填' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -156,8 +158,10 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
                 validator: Validators.requiredUrl,
               ),
               const SizedBox(height: 12),
-              const Text('详情页渲染方式',
-                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text(
+                '详情页渲染方式',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
               RadioGroup<DetailRenderMode>(
                 groupValue: _detailMode,
                 onChanged: (v) => setState(() => _detailMode = v!),
@@ -189,10 +193,7 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
                   label: Text(_testing ? '测试中…' : '测试订阅并预览'),
                 ),
               ),
-              _PreviewSection(
-                preview: _preview,
-                error: _previewError,
-              ),
+              _PreviewSection(preview: _preview, error: _previewError),
             ],
           ),
         ),
@@ -223,8 +224,10 @@ class _PreviewSection extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('解析失败',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+            const Text(
+              '解析失败',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+            ),
             const SizedBox(height: 6),
             Text(error!, style: const TextStyle(fontSize: 12)),
           ],
@@ -244,18 +247,29 @@ class _PreviewSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('订阅成功，预览前 ${preview!.length} 条：',
-              style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(
+            '订阅成功，预览前 ${preview!.length} 条：',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
-          ...preview!.map((a) => ListTile(
-                dense: true,
-                leading: a.thumbUrl.isEmpty
-                    ? const Icon(Icons.article, size: 32)
-                    : null,
-                title: Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis),
-                subtitle:
-                    Text(a.summary ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
-              )),
+          ...preview!.map(
+            (a) => ListTile(
+              dense: true,
+              leading: a.thumbUrl.isEmpty
+                  ? const Icon(Icons.article, size: 32)
+                  : null,
+              title: Text(
+                a.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                a.summary ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
         ],
       ),
     );
