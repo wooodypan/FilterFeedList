@@ -42,6 +42,18 @@ class $DataSourcesTable extends DataSources
     ),
     defaultValue: const Constant(true),
   );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   late final GeneratedColumnWithTypeConverter<DataSourceConfig, String> config =
       GeneratedColumn<String>(
@@ -52,7 +64,7 @@ class $DataSourcesTable extends DataSources
         requiredDuringInsert: true,
       ).withConverter<DataSourceConfig>($DataSourcesTable.$converterconfig);
   @override
-  List<GeneratedColumn> get $columns => [id, name, enabled, config];
+  List<GeneratedColumn> get $columns => [id, name, enabled, sortOrder, config];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -84,6 +96,12 @@ class $DataSourcesTable extends DataSources
         enabled.isAcceptableOrUnknown(data['enabled']!, _enabledMeta),
       );
     }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
     return context;
   }
 
@@ -104,6 +122,10 @@ class $DataSourcesTable extends DataSources
       enabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}enabled'],
+      )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
       )!,
       config: $DataSourcesTable.$converterconfig.fromSql(
         attachedDatabase.typeMapping.read(
@@ -133,12 +155,21 @@ class DataSource extends DataClass implements Insertable<DataSource> {
   /// 是否启用
   final bool enabled;
 
+  /// 信息流顶部 Tab 的排序序号（越小越靠前）。
+  ///
+  /// 用户在信息流页长按拖动 Tab 后，会按新顺序重新编号并写回本列，
+  /// 这样下次启动 App 时 Tab 顺序和上次一致。
+  /// 注意：序号是"全局"的——数据源表和插件表共用一套编号，
+  /// 所以两表混合排序也能还原出用户排好的交错顺序。
+  final int sortOrder;
+
   /// 完整配置（JSON 字符串，见 DataSourceConverter）
   final DataSourceConfig config;
   const DataSource({
     required this.id,
     required this.name,
     required this.enabled,
+    required this.sortOrder,
     required this.config,
   });
   @override
@@ -147,6 +178,7 @@ class DataSource extends DataClass implements Insertable<DataSource> {
     map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
     map['enabled'] = Variable<bool>(enabled);
+    map['sort_order'] = Variable<int>(sortOrder);
     {
       map['config'] = Variable<String>(
         $DataSourcesTable.$converterconfig.toSql(config),
@@ -160,6 +192,7 @@ class DataSource extends DataClass implements Insertable<DataSource> {
       id: Value(id),
       name: Value(name),
       enabled: Value(enabled),
+      sortOrder: Value(sortOrder),
       config: Value(config),
     );
   }
@@ -173,6 +206,7 @@ class DataSource extends DataClass implements Insertable<DataSource> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       enabled: serializer.fromJson<bool>(json['enabled']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
       config: serializer.fromJson<DataSourceConfig>(json['config']),
     );
   }
@@ -183,6 +217,7 @@ class DataSource extends DataClass implements Insertable<DataSource> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'enabled': serializer.toJson<bool>(enabled),
+      'sortOrder': serializer.toJson<int>(sortOrder),
       'config': serializer.toJson<DataSourceConfig>(config),
     };
   }
@@ -191,11 +226,13 @@ class DataSource extends DataClass implements Insertable<DataSource> {
     String? id,
     String? name,
     bool? enabled,
+    int? sortOrder,
     DataSourceConfig? config,
   }) => DataSource(
     id: id ?? this.id,
     name: name ?? this.name,
     enabled: enabled ?? this.enabled,
+    sortOrder: sortOrder ?? this.sortOrder,
     config: config ?? this.config,
   );
   DataSource copyWithCompanion(DataSourcesCompanion data) {
@@ -203,6 +240,7 @@ class DataSource extends DataClass implements Insertable<DataSource> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       enabled: data.enabled.present ? data.enabled.value : this.enabled,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
       config: data.config.present ? data.config.value : this.config,
     );
   }
@@ -213,13 +251,14 @@ class DataSource extends DataClass implements Insertable<DataSource> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('enabled: $enabled, ')
+          ..write('sortOrder: $sortOrder, ')
           ..write('config: $config')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, enabled, config);
+  int get hashCode => Object.hash(id, name, enabled, sortOrder, config);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -227,6 +266,7 @@ class DataSource extends DataClass implements Insertable<DataSource> {
           other.id == this.id &&
           other.name == this.name &&
           other.enabled == this.enabled &&
+          other.sortOrder == this.sortOrder &&
           other.config == this.config);
 }
 
@@ -234,12 +274,14 @@ class DataSourcesCompanion extends UpdateCompanion<DataSource> {
   final Value<String> id;
   final Value<String> name;
   final Value<bool> enabled;
+  final Value<int> sortOrder;
   final Value<DataSourceConfig> config;
   final Value<int> rowid;
   const DataSourcesCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.enabled = const Value.absent(),
+    this.sortOrder = const Value.absent(),
     this.config = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -247,6 +289,7 @@ class DataSourcesCompanion extends UpdateCompanion<DataSource> {
     required String id,
     required String name,
     this.enabled = const Value.absent(),
+    this.sortOrder = const Value.absent(),
     required DataSourceConfig config,
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -256,6 +299,7 @@ class DataSourcesCompanion extends UpdateCompanion<DataSource> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<bool>? enabled,
+    Expression<int>? sortOrder,
     Expression<String>? config,
     Expression<int>? rowid,
   }) {
@@ -263,6 +307,7 @@ class DataSourcesCompanion extends UpdateCompanion<DataSource> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (enabled != null) 'enabled': enabled,
+      if (sortOrder != null) 'sort_order': sortOrder,
       if (config != null) 'config': config,
       if (rowid != null) 'rowid': rowid,
     });
@@ -272,6 +317,7 @@ class DataSourcesCompanion extends UpdateCompanion<DataSource> {
     Value<String>? id,
     Value<String>? name,
     Value<bool>? enabled,
+    Value<int>? sortOrder,
     Value<DataSourceConfig>? config,
     Value<int>? rowid,
   }) {
@@ -279,6 +325,7 @@ class DataSourcesCompanion extends UpdateCompanion<DataSource> {
       id: id ?? this.id,
       name: name ?? this.name,
       enabled: enabled ?? this.enabled,
+      sortOrder: sortOrder ?? this.sortOrder,
       config: config ?? this.config,
       rowid: rowid ?? this.rowid,
     );
@@ -295,6 +342,9 @@ class DataSourcesCompanion extends UpdateCompanion<DataSource> {
     }
     if (enabled.present) {
       map['enabled'] = Variable<bool>(enabled.value);
+    }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
     }
     if (config.present) {
       map['config'] = Variable<String>(
@@ -313,6 +363,7 @@ class DataSourcesCompanion extends UpdateCompanion<DataSource> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('enabled: $enabled, ')
+          ..write('sortOrder: $sortOrder, ')
           ..write('config: $config, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -667,6 +718,18 @@ class $InstalledPluginsTable extends InstalledPlugins
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _sortOrderMeta = const VerificationMeta(
+    'sortOrder',
+  );
+  @override
+  late final GeneratedColumn<int> sortOrder = GeneratedColumn<int>(
+    'sort_order',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -677,6 +740,7 @@ class $InstalledPluginsTable extends InstalledPlugins
     enabled,
     installedAt,
     version,
+    sortOrder,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -758,6 +822,12 @@ class $InstalledPluginsTable extends InstalledPlugins
     } else if (isInserting) {
       context.missing(_versionMeta);
     }
+    if (data.containsKey('sort_order')) {
+      context.handle(
+        _sortOrderMeta,
+        sortOrder.isAcceptableOrUnknown(data['sort_order']!, _sortOrderMeta),
+      );
+    }
     return context;
   }
 
@@ -799,6 +869,10 @@ class $InstalledPluginsTable extends InstalledPlugins
         DriftSqlType.string,
         data['${effectivePrefix}version'],
       )!,
+      sortOrder: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sort_order'],
+      )!,
     );
   }
 
@@ -833,6 +907,12 @@ class InstalledPluginsRow extends DataClass
 
   /// 版本号
   final String version;
+
+  /// 信息流顶部 Tab 的排序序号（越小越靠前）。
+  ///
+  /// 含义同 DataSources.sortOrder：插件和数据源共用一套全局编号，
+  /// 所以"插件 Tab 排在数据源 Tab 前面"这种交错顺序也能被正确还原。
+  final int sortOrder;
   const InstalledPluginsRow({
     required this.id,
     required this.name,
@@ -842,6 +922,7 @@ class InstalledPluginsRow extends DataClass
     required this.enabled,
     required this.installedAt,
     required this.version,
+    required this.sortOrder,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -854,6 +935,7 @@ class InstalledPluginsRow extends DataClass
     map['enabled'] = Variable<bool>(enabled);
     map['installed_at'] = Variable<DateTime>(installedAt);
     map['version'] = Variable<String>(version);
+    map['sort_order'] = Variable<int>(sortOrder);
     return map;
   }
 
@@ -867,6 +949,7 @@ class InstalledPluginsRow extends DataClass
       enabled: Value(enabled),
       installedAt: Value(installedAt),
       version: Value(version),
+      sortOrder: Value(sortOrder),
     );
   }
 
@@ -884,6 +967,7 @@ class InstalledPluginsRow extends DataClass
       enabled: serializer.fromJson<bool>(json['enabled']),
       installedAt: serializer.fromJson<DateTime>(json['installedAt']),
       version: serializer.fromJson<String>(json['version']),
+      sortOrder: serializer.fromJson<int>(json['sortOrder']),
     );
   }
   @override
@@ -898,6 +982,7 @@ class InstalledPluginsRow extends DataClass
       'enabled': serializer.toJson<bool>(enabled),
       'installedAt': serializer.toJson<DateTime>(installedAt),
       'version': serializer.toJson<String>(version),
+      'sortOrder': serializer.toJson<int>(sortOrder),
     };
   }
 
@@ -910,6 +995,7 @@ class InstalledPluginsRow extends DataClass
     bool? enabled,
     DateTime? installedAt,
     String? version,
+    int? sortOrder,
   }) => InstalledPluginsRow(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -919,6 +1005,7 @@ class InstalledPluginsRow extends DataClass
     enabled: enabled ?? this.enabled,
     installedAt: installedAt ?? this.installedAt,
     version: version ?? this.version,
+    sortOrder: sortOrder ?? this.sortOrder,
   );
   InstalledPluginsRow copyWithCompanion(InstalledPluginsCompanion data) {
     return InstalledPluginsRow(
@@ -936,6 +1023,7 @@ class InstalledPluginsRow extends DataClass
           ? data.installedAt.value
           : this.installedAt,
       version: data.version.present ? data.version.value : this.version,
+      sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
     );
   }
 
@@ -949,7 +1037,8 @@ class InstalledPluginsRow extends DataClass
           ..write('sourceUrl: $sourceUrl, ')
           ..write('enabled: $enabled, ')
           ..write('installedAt: $installedAt, ')
-          ..write('version: $version')
+          ..write('version: $version, ')
+          ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
   }
@@ -964,6 +1053,7 @@ class InstalledPluginsRow extends DataClass
     enabled,
     installedAt,
     version,
+    sortOrder,
   );
   @override
   bool operator ==(Object other) =>
@@ -976,7 +1066,8 @@ class InstalledPluginsRow extends DataClass
           other.sourceUrl == this.sourceUrl &&
           other.enabled == this.enabled &&
           other.installedAt == this.installedAt &&
-          other.version == this.version);
+          other.version == this.version &&
+          other.sortOrder == this.sortOrder);
 }
 
 class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
@@ -988,6 +1079,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
   final Value<bool> enabled;
   final Value<DateTime> installedAt;
   final Value<String> version;
+  final Value<int> sortOrder;
   final Value<int> rowid;
   const InstalledPluginsCompanion({
     this.id = const Value.absent(),
@@ -998,6 +1090,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
     this.enabled = const Value.absent(),
     this.installedAt = const Value.absent(),
     this.version = const Value.absent(),
+    this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   InstalledPluginsCompanion.insert({
@@ -1009,6 +1102,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
     this.enabled = const Value.absent(),
     required DateTime installedAt,
     required String version,
+    this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -1026,6 +1120,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
     Expression<bool>? enabled,
     Expression<DateTime>? installedAt,
     Expression<String>? version,
+    Expression<int>? sortOrder,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1037,6 +1132,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
       if (enabled != null) 'enabled': enabled,
       if (installedAt != null) 'installed_at': installedAt,
       if (version != null) 'version': version,
+      if (sortOrder != null) 'sort_order': sortOrder,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1050,6 +1146,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
     Value<bool>? enabled,
     Value<DateTime>? installedAt,
     Value<String>? version,
+    Value<int>? sortOrder,
     Value<int>? rowid,
   }) {
     return InstalledPluginsCompanion(
@@ -1061,6 +1158,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
       enabled: enabled ?? this.enabled,
       installedAt: installedAt ?? this.installedAt,
       version: version ?? this.version,
+      sortOrder: sortOrder ?? this.sortOrder,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1092,6 +1190,9 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
     if (version.present) {
       map['version'] = Variable<String>(version.value);
     }
+    if (sortOrder.present) {
+      map['sort_order'] = Variable<int>(sortOrder.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1109,6 +1210,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
           ..write('enabled: $enabled, ')
           ..write('installedAt: $installedAt, ')
           ..write('version: $version, ')
+          ..write('sortOrder: $sortOrder, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1141,6 +1243,7 @@ typedef $$DataSourcesTableCreateCompanionBuilder =
       required String id,
       required String name,
       Value<bool> enabled,
+      Value<int> sortOrder,
       required DataSourceConfig config,
       Value<int> rowid,
     });
@@ -1149,6 +1252,7 @@ typedef $$DataSourcesTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String> name,
       Value<bool> enabled,
+      Value<int> sortOrder,
       Value<DataSourceConfig> config,
       Value<int> rowid,
     });
@@ -1174,6 +1278,11 @@ class $$DataSourcesTableFilterComposer
 
   ColumnFilters<bool> get enabled => $composableBuilder(
     column: $table.enabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1208,6 +1317,11 @@ class $$DataSourcesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get config => $composableBuilder(
     column: $table.config,
     builder: (column) => ColumnOrderings(column),
@@ -1231,6 +1345,9 @@ class $$DataSourcesTableAnnotationComposer
 
   GeneratedColumn<bool> get enabled =>
       $composableBuilder(column: $table.enabled, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
 
   GeneratedColumnWithTypeConverter<DataSourceConfig, String> get config =>
       $composableBuilder(column: $table.config, builder: (column) => column);
@@ -1270,12 +1387,14 @@ class $$DataSourcesTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<bool> enabled = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
                 Value<DataSourceConfig> config = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => DataSourcesCompanion(
                 id: id,
                 name: name,
                 enabled: enabled,
+                sortOrder: sortOrder,
                 config: config,
                 rowid: rowid,
               ),
@@ -1284,12 +1403,14 @@ class $$DataSourcesTableTableManager
                 required String id,
                 required String name,
                 Value<bool> enabled = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
                 required DataSourceConfig config,
                 Value<int> rowid = const Value.absent(),
               }) => DataSourcesCompanion.insert(
                 id: id,
                 name: name,
                 enabled: enabled,
+                sortOrder: sortOrder,
                 config: config,
                 rowid: rowid,
               ),
@@ -1490,6 +1611,7 @@ typedef $$InstalledPluginsTableCreateCompanionBuilder =
       Value<bool> enabled,
       required DateTime installedAt,
       required String version,
+      Value<int> sortOrder,
       Value<int> rowid,
     });
 typedef $$InstalledPluginsTableUpdateCompanionBuilder =
@@ -1502,6 +1624,7 @@ typedef $$InstalledPluginsTableUpdateCompanionBuilder =
       Value<bool> enabled,
       Value<DateTime> installedAt,
       Value<String> version,
+      Value<int> sortOrder,
       Value<int> rowid,
     });
 
@@ -1551,6 +1674,11 @@ class $$InstalledPluginsTableFilterComposer
 
   ColumnFilters<String> get version => $composableBuilder(
     column: $table.version,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1603,6 +1731,11 @@ class $$InstalledPluginsTableOrderingComposer
     column: $table.version,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<int> get sortOrder => $composableBuilder(
+    column: $table.sortOrder,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$InstalledPluginsTableAnnotationComposer
@@ -1643,6 +1776,9 @@ class $$InstalledPluginsTableAnnotationComposer
 
   GeneratedColumn<String> get version =>
       $composableBuilder(column: $table.version, builder: (column) => column);
+
+  GeneratedColumn<int> get sortOrder =>
+      $composableBuilder(column: $table.sortOrder, builder: (column) => column);
 }
 
 class $$InstalledPluginsTableTableManager
@@ -1690,6 +1826,7 @@ class $$InstalledPluginsTableTableManager
                 Value<bool> enabled = const Value.absent(),
                 Value<DateTime> installedAt = const Value.absent(),
                 Value<String> version = const Value.absent(),
+                Value<int> sortOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InstalledPluginsCompanion(
                 id: id,
@@ -1700,6 +1837,7 @@ class $$InstalledPluginsTableTableManager
                 enabled: enabled,
                 installedAt: installedAt,
                 version: version,
+                sortOrder: sortOrder,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -1712,6 +1850,7 @@ class $$InstalledPluginsTableTableManager
                 Value<bool> enabled = const Value.absent(),
                 required DateTime installedAt,
                 required String version,
+                Value<int> sortOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InstalledPluginsCompanion.insert(
                 id: id,
@@ -1722,6 +1861,7 @@ class $$InstalledPluginsTableTableManager
                 enabled: enabled,
                 installedAt: installedAt,
                 version: version,
+                sortOrder: sortOrder,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0

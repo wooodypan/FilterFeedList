@@ -34,6 +34,10 @@ class JsPluginFeedSource implements FeedSource {
   @override
   String? get detailUrlTemplate => null;
 
+  // 插件存在 installed_plugins 表，和数据源配置不是同一张表
+  @override
+  FeedSourceStorage get storage => FeedSourceStorage.plugin;
+
   @override
   bool get supportsPagination => true;
 

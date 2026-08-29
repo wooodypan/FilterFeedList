@@ -3,6 +3,19 @@ import '../models/feed_article.dart';
 import 'feed_repository.dart';
 import 'rss_feed_repository.dart';
 
+/// 数据源的持久化归属。
+///
+/// 信息流顶部的 Tab 混排了两类来源：数据源配置（data_sources 表）和
+/// JS 插件（installed_plugins 表）。用户拖动排序后，新序号要写回各自的表，
+/// 所以需要知道每个 [FeedSource] 到底存在哪张表里。
+enum FeedSourceStorage {
+  /// 存在 data_sources 表（JSONPath 配置源 / RSS 订阅源）
+  dataSource,
+
+  /// 存在 installed_plugins 表（JS 插件源）
+  plugin,
+}
+
 /// 信息流数据源的统一抽象。
 ///
 /// 这是 task2 方案里"两套体系并存"的核心：无论是原来的 JSONPath 声明式配置，
@@ -26,6 +39,9 @@ abstract class FeedSource {
 
   /// 详情页 URL 拼接模板（webview 模式且需要二次拼接时用）
   String? get detailUrlTemplate;
+
+  /// 该源的持久化归属：决定 Tab 排序序号要写回哪张 SQLite 表。
+  FeedSourceStorage get storage;
 
   /// 该源是否支持按页加载（true 时才参与 FeedNotifier 的"加载更多"）。
   ///
@@ -62,6 +78,10 @@ class JsonPathFeedSource implements FeedSource {
 
   @override
   String? get detailUrlTemplate => config.detailUrlTemplate;
+
+  // JSONPath 配置源存在 data_sources 表
+  @override
+  FeedSourceStorage get storage => FeedSourceStorage.dataSource;
 
   @override
   bool get supportsPagination => true;
@@ -107,6 +127,10 @@ class RssFeedSource implements FeedSource {
 
   @override
   String? get detailUrlTemplate => config.detailUrlTemplate;
+
+  // RSS 订阅配置同样存在 data_sources 表（只是 sourceType 不同）
+  @override
+  FeedSourceStorage get storage => FeedSourceStorage.dataSource;
 
   @override
   bool get supportsPagination => false;

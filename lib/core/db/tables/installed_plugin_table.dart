@@ -38,6 +38,12 @@ class InstalledPlugins extends Table {
   /// 版本号
   TextColumn get version => text()();
 
+  /// 信息流顶部 Tab 的排序序号（越小越靠前）。
+  ///
+  /// 含义同 DataSources.sortOrder：插件和数据源共用一套全局编号，
+  /// 所以"插件 Tab 排在数据源 Tab 前面"这种交错顺序也能被正确还原。
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
   @override
   Set<Column> get primaryKey => {id};
 }

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:drift/drift.dart';
 import 'package:drift/native.dart';
@@ -28,13 +29,24 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase({QueryExecutor? executor}) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
-  /// 不需要自定义迁移策略。
+  /// 迁移策略：只在"加列"这种向后兼容的结构变更时升级。
   ///
-  /// 这是一个全新 App（尚无真实用户），数据库直接用 drift 的默认行为：
-  /// 全新安装时由框架自动 createAll() 建好全部三张表；不涉及历史版本升级。
-  /// 若日后需要改表结构，再回来补充迁移逻辑即可。
+  /// 全新安装时由 drift 自动 createAll() 建好全部表（含新列），不走这里；
+  /// 老用户升级时才触发 onUpgrade。
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (migrator, from, to) async {
+      // v2 -> v3：给两张表各加一个 Tab 排序序号列。
+      // addColumn 要求列有默认值或可为空，sortOrder 默认 0，满足条件；
+      // 老数据全部落在 0，首次拖动排序后就会被重新编号。
+      if (from < 3) {
+        await migrator.addColumn(dataSources, dataSources.sortOrder);
+        await migrator.addColumn(installedPlugins, installedPlugins.sortOrder);
+      }
+    },
+  );
 
   /// 懒加载连接：拿到应用文档目录后，把数据库文件放在那里。
   static QueryExecutor _openConnection() {
@@ -62,16 +74,77 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// 插入或更新（id 相同就覆盖）
-  Future<void> upsertDataSource(DataSourceConfig config) {
-    return into(dataSources).insertOnConflictUpdate(
+  Future<void> upsertDataSource(DataSourceConfig config) async {
+    // 已存在的源沿用原来的 Tab 序号（否则改个名字就被挤到末尾），
+    // 新增的源排到所有 Tab 的最后一位。
+    final existingRow = await (select(
+      dataSources,
+    )..where((t) => t.id.equals(config.id))).getSingleOrNull();
+
+    await into(dataSources).insertOnConflictUpdate(
       DataSourcesCompanion.insert(
         // .insert 工厂里 id/name/config 是"原始类型"，不是 Value 包裹
         id: config.id,
         name: config.name,
         enabled: Value(config.enabled),
         config: config,
+        sortOrder: Value(existingRow?.sortOrder ?? await _nextSortOrder()),
       ),
     );
+  }
+
+  // ===================== Tab 排序序号相关 DAO =====================
+
+  /// 读出所有源（数据源 + 插件）的 Tab 排序序号，合并成 id -> 序号 的映射。
+  ///
+  /// 两表共用一套全局编号，所以合在一起即可还原出用户排好的交错顺序。
+  Future<Map<String, int>> getAllSortOrders() async {
+    final sourceRows = await select(dataSources).get();
+    final pluginRows = await select(installedPlugins).get();
+    return {
+      for (final r in sourceRows) r.id: r.sortOrder,
+      for (final r in pluginRows) r.id: r.sortOrder,
+    };
+  }
+
+  /// 批量写回数据源的 Tab 序号。
+  ///
+  /// 用 batch 把多条 UPDATE 打包成一次数据库往返，比逐条 await 更快。
+  Future<void> updateDataSourceSortOrders(Map<String, int> idToOrder) async {
+    if (idToOrder.isEmpty) return;
+    await batch((b) {
+      for (final entry in idToOrder.entries) {
+        b.update(
+          dataSources,
+          DataSourcesCompanion(sortOrder: Value(entry.value)),
+          where: (t) => t.id.equals(entry.key),
+        );
+      }
+    });
+  }
+
+  /// 批量写回插件的 Tab 序号（同 [updateDataSourceSortOrders]）。
+  Future<void> updatePluginSortOrders(Map<String, int> idToOrder) async {
+    if (idToOrder.isEmpty) return;
+    await batch((b) {
+      for (final entry in idToOrder.entries) {
+        b.update(
+          installedPlugins,
+          InstalledPluginsCompanion(sortOrder: Value(entry.value)),
+          where: (t) => t.id.equals(entry.key),
+        );
+      }
+    });
+  }
+
+  /// 下一个可用的 Tab 序号（当前最大序号 + 1），让新增的源排在最后。
+  ///
+  /// 两张表都没有记录时返回 0，避免第一个源从 1 开始。
+  Future<int> _nextSortOrder() async {
+    final orders = await getAllSortOrders();
+    if (orders.isEmpty) return 0;
+    // 只在"有记录"时取最大值；删除源留下的序号空洞不影响排序（只比大小）
+    return orders.values.reduce(max) + 1;
   }
 
   /// 删除某个数据源
@@ -135,8 +208,13 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// 插入或更新（id 相同就覆盖脚本 / 清单）。
-  Future<void> upsertInstalledPlugin(InstalledPlugin plugin) {
-    return into(installedPlugins).insertOnConflictUpdate(
+  Future<void> upsertInstalledPlugin(InstalledPlugin plugin) async {
+    // 同 upsertDataSource：已安装的插件沿用原 Tab 序号，新装的排到最后
+    final existingRow = await (select(
+      installedPlugins,
+    )..where((t) => t.id.equals(plugin.id))).getSingleOrNull();
+
+    await into(installedPlugins).insertOnConflictUpdate(
       InstalledPluginsCompanion.insert(
         id: plugin.id,
         name: plugin.name,
@@ -148,6 +226,7 @@ class AppDatabase extends _$AppDatabase {
         // 不需要 Value() 包裹（enabled 有默认值才需要 Value）
         installedAt: plugin.installedAt,
         version: plugin.version,
+        sortOrder: Value(existingRow?.sortOrder ?? await _nextSortOrder()),
       ),
     );
   }

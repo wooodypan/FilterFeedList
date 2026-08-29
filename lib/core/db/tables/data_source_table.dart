@@ -37,6 +37,14 @@ class DataSources extends Table {
   /// 是否启用
   BoolColumn get enabled => boolean().withDefault(const Constant(true))();
 
+  /// 信息流顶部 Tab 的排序序号（越小越靠前）。
+  ///
+  /// 用户在信息流页长按拖动 Tab 后，会按新顺序重新编号并写回本列，
+  /// 这样下次启动 App 时 Tab 顺序和上次一致。
+  /// 注意：序号是"全局"的——数据源表和插件表共用一套编号，
+  /// 所以两表混合排序也能还原出用户排好的交错顺序。
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
   /// 完整配置（JSON 字符串，见 DataSourceConverter）
   TextColumn get config => text().map(const DataSourceConverter())();
 

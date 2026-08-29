@@ -78,6 +78,8 @@ dev_dependencies:
   json_serializable: ^6.8.0
   # 数据库：drift 代码生成
   drift_dev: ^2.19.0
+  # 迁移测试要用原生 sqlite3 造一个"老版本"数据库文件（运行时已由 drift 间接引入）
+  sqlite3: ^3.5.2
 
 # 关于"dart_jsonpath"：本方案采用 spec 中的自研简化版 JsonPathResolver，
 # 只支持 a.b.c / a.b[0].c 语法，无需引入完整 JSONPath 库，更可控、性能更好。

@@ -21,6 +21,9 @@ class FeedListPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(feedSettingsProvider);
     final sources = ref.watch(allFeedSourcesProvider);
+    // Tab 顺序只在"分源 Tab 模式"下有意义，所以在这里按需排序，
+    // 避免影响聚合模式的信息流（原因见 allFeedSourcesProvider 的注释）
+    final tabOrders = ref.watch(sourceSortOrdersProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -36,14 +39,14 @@ class FeedListPage extends ConsumerWidget {
       body: Builder(
         builder: (context) {
           if (sources.isEmpty) {
-            return const Center(
-              child: Text('还没有启用任何数据源，去"设置"添加或安装插件吧'),
-            );
+            return const Center(child: Text('还没有启用任何数据源，去"设置"添加或安装插件吧'));
           }
-          // 按设置选择聚合 / 分 Tab
+          // 按设置选择聚合 / 分 Tab（Tab 模式才需要按用户排好的顺序显示）
           return settings.aggregateMode
               ? _AggregateFeedView(sources: sources)
-              : _TabbedFeedView(sources: sources);
+              : _TabbedFeedView(
+                  sources: sortSourcesByTabOrder(sources, tabOrders),
+                );
         },
       ),
     );
@@ -70,35 +73,110 @@ class _AggregateFeedView extends ConsumerWidget {
   }
 }
 
-/// 分源 Tab 模式：每个源一个 Tab
-class _TabbedFeedView extends StatelessWidget {
+/// 分源 Tab 模式：每个源一个 Tab（长按标签可左右拖动排序）。
+///
+/// 自己持有 [TabController] 而不用 DefaultTabController，是为了在
+/// "数据源数量变化"时重建控制器、在"拖动排序"时把选中项跟住原来的数据源。
+class _TabbedFeedView extends ConsumerStatefulWidget {
   final List<FeedSource> sources;
   const _TabbedFeedView({required this.sources});
 
   @override
+  ConsumerState<_TabbedFeedView> createState() => _TabbedFeedViewState();
+}
+
+class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
+    with TickerProviderStateMixin {
+  TabController? _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: widget.sources.length, vsync: this);
+  }
+
+  @override
+  void didUpdateWidget(covariant _TabbedFeedView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final old = oldWidget.sources;
+    final next = widget.sources;
+
+    if (old.length != next.length) {
+      // 数据源数量变了（新增 / 删除 / 启停）：旧索引已失效，重建控制器回到第一个
+      _tabController?.dispose();
+      _tabController = TabController(length: next.length, vsync: this);
+      return;
+    }
+    if (old.isEmpty) return;
+
+    // 数量没变但顺序变了（用户拖动了 Tab）：
+    // 让"当前正在看的那个源"继续被选中，而不是停在原索引上看到别的源
+    if (!_isSameOrder(old, next)) {
+      final currentId = old[_tabController!.index].id;
+      final newIndex = next.indexWhere((s) => s.id == currentId);
+      if (newIndex >= 0 && newIndex != _tabController!.index) {
+        _tabController!.animateTo(newIndex);
+      }
+    }
+  }
+
+  /// 按 id 比较两个列表的顺序是否完全一致
+  bool _isSameOrder(List<FeedSource> a, List<FeedSource> b) {
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].id != b[i].id) return false;
+    }
+    return true;
+  }
+
+  @override
+  void dispose() {
+    _tabController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: sources.length,
-      child: Column(
-        children: [
-          FeedSourceTabBar(sources: sources),
-          Expanded(
-            child: TabBarView(
-              children: sources
-                  .map((s) => _SingleSourceFeedView(source: s))
-                  .toList(),
-            ),
+    final controller = _tabController!;
+    return Column(
+      children: [
+        FeedSourceTabBar(
+          sources: widget.sources,
+          controller: controller,
+          onReorder: _onReorder,
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: controller,
+            // 给每个子页按源 id 加 key：顺序变化后 Flutter 才能把状态跟对源，
+            // 否则"第 2 页"可能错误地复用"第 3 页"的滚动位置等状态
+            children: widget.sources
+                .map(
+                  (s) => _SingleSourceFeedView(key: ValueKey(s.id), source: s),
+                )
+                .toList(),
           ),
-        ],
-      ),
+        ),
+      ],
     );
+  }
+
+  /// 拖动排序：算出新顺序后交给 Provider 保存。
+  ///
+  /// Provider 会先更新内存里的序号映射（Tab 立刻按新顺序重排），
+  /// 再把新序号写回 SQLite，下次启动顺序保持一致。
+  Future<void> _onReorder(int oldIndex, int newIndex) async {
+    final ordered = List<FeedSource>.of(widget.sources);
+    // SliverReorderableList 给的 newIndex 已按"移除旧项"修正过，直接插入即可
+    final moved = ordered.removeAt(oldIndex);
+    ordered.insert(newIndex, moved);
+    await ref.read(sourceSortOrdersProvider.notifier).saveOrder(ordered);
   }
 }
 
 /// 单个源 Tab 的内容
 class _SingleSourceFeedView extends ConsumerWidget {
   final FeedSource source;
-  const _SingleSourceFeedView({required this.source});
+  const _SingleSourceFeedView({super.key, required this.source});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -107,8 +185,7 @@ class _SingleSourceFeedView extends ConsumerWidget {
     return _FeedListView(
       state: state,
       showThumb: showThumb,
-      onRefresh: () =>
-          ref.read(feedTabProvider(source).notifier).loadInitial(),
+      onRefresh: () => ref.read(feedTabProvider(source).notifier).loadInitial(),
       onLoadMore: () => ref.read(feedTabProvider(source).notifier).loadMore(),
       // 单源模式下源已知，直接传给详情页
       sourceConfig: source,
@@ -146,8 +223,7 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
   }
 
   void _onScroll() {
-    if (_scroll.position.pixels >=
-        _scroll.position.maxScrollExtent - 200) {
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 200) {
       widget.onLoadMore();
     }
   }
