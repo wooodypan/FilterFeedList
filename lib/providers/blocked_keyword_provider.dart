@@ -25,6 +25,9 @@ class BlockedKeywordNotifier extends StateNotifier<AsyncValue<List<String>>> {
     }
   }
 
+  /// 重新从数据库加载（供外部在数据被批量改动后调用，如"导入备份"）。
+  Future<void> reload() => _load();
+
   /// 添加一个屏蔽词（自动去前后空格；空串忽略）
   Future<void> add(String word) async {
     final w = word.trim();

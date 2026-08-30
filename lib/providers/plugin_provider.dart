@@ -32,6 +32,9 @@ class InstalledPluginNotifier
     }
   }
 
+  /// 重新从数据库加载（供外部在数据被批量改动后调用，如"导入备份"）。
+  Future<void> reload() => _load();
+
   /// 安装或覆盖更新一个插件（id 相同即覆盖脚本）。
   Future<void> install(InstalledPlugin plugin) async {
     await _repo.install(plugin);

@@ -7,5 +7,8 @@
 	<!-- 发布版本同样需要允许客户端外连网络 -->
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- 配置导入：允许读取用户在文件选择面板里选中的 .json 备份文件（沙盒下必需） -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
 </dict>
 </plist>

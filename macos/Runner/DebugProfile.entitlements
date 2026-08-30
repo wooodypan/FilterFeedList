@@ -11,5 +11,8 @@
 	<!-- 允许 App 作为客户端主动访问网络（如请求 Algolia 接口），缺此项会被沙盒拦截报 errno=1 -->
 	<key>com.apple.security.network.client</key>
 	<true/>
+	<!-- 配置导入：允许读取用户在文件选择面板里选中的 .json 备份文件（沙盒下必需） -->
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
 </dict>
 </plist>

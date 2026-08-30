@@ -4,7 +4,7 @@ part of 'app_database.dart';
 
 // ignore_for_file: type=lint
 class $DataSourcesTable extends DataSources
-    with TableInfo<$DataSourcesTable, DataSource> {
+    with TableInfo<$DataSourcesTable, DataSourcesRow> {
   @override
   final GeneratedDatabase attachedDatabase;
   final String? _alias;
@@ -72,7 +72,7 @@ class $DataSourcesTable extends DataSources
   static const String $name = 'data_sources';
   @override
   VerificationContext validateIntegrity(
-    Insertable<DataSource> instance, {
+    Insertable<DataSourcesRow> instance, {
     bool isInserting = false,
   }) {
     final context = VerificationContext();
@@ -108,9 +108,9 @@ class $DataSourcesTable extends DataSources
   @override
   Set<GeneratedColumn> get $primaryKey => {id};
   @override
-  DataSource map(Map<String, dynamic> data, {String? tablePrefix}) {
+  DataSourcesRow map(Map<String, dynamic> data, {String? tablePrefix}) {
     final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
-    return DataSource(
+    return DataSourcesRow(
       id: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}id'],
@@ -145,7 +145,7 @@ class $DataSourcesTable extends DataSources
       const DataSourceConverter();
 }
 
-class DataSource extends DataClass implements Insertable<DataSource> {
+class DataSourcesRow extends DataClass implements Insertable<DataSourcesRow> {
   /// 数据源唯一 id（主键）
   final String id;
 
@@ -165,7 +165,7 @@ class DataSource extends DataClass implements Insertable<DataSource> {
 
   /// 完整配置（JSON 字符串，见 DataSourceConverter）
   final DataSourceConfig config;
-  const DataSource({
+  const DataSourcesRow({
     required this.id,
     required this.name,
     required this.enabled,
@@ -197,12 +197,12 @@ class DataSource extends DataClass implements Insertable<DataSource> {
     );
   }
 
-  factory DataSource.fromJson(
+  factory DataSourcesRow.fromJson(
     Map<String, dynamic> json, {
     ValueSerializer? serializer,
   }) {
     serializer ??= driftRuntimeOptions.defaultSerializer;
-    return DataSource(
+    return DataSourcesRow(
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       enabled: serializer.fromJson<bool>(json['enabled']),
@@ -222,21 +222,21 @@ class DataSource extends DataClass implements Insertable<DataSource> {
     };
   }
 
-  DataSource copyWith({
+  DataSourcesRow copyWith({
     String? id,
     String? name,
     bool? enabled,
     int? sortOrder,
     DataSourceConfig? config,
-  }) => DataSource(
+  }) => DataSourcesRow(
     id: id ?? this.id,
     name: name ?? this.name,
     enabled: enabled ?? this.enabled,
     sortOrder: sortOrder ?? this.sortOrder,
     config: config ?? this.config,
   );
-  DataSource copyWithCompanion(DataSourcesCompanion data) {
-    return DataSource(
+  DataSourcesRow copyWithCompanion(DataSourcesCompanion data) {
+    return DataSourcesRow(
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       enabled: data.enabled.present ? data.enabled.value : this.enabled,
@@ -247,7 +247,7 @@ class DataSource extends DataClass implements Insertable<DataSource> {
 
   @override
   String toString() {
-    return (StringBuffer('DataSource(')
+    return (StringBuffer('DataSourcesRow(')
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('enabled: $enabled, ')
@@ -262,7 +262,7 @@ class DataSource extends DataClass implements Insertable<DataSource> {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      (other is DataSource &&
+      (other is DataSourcesRow &&
           other.id == this.id &&
           other.name == this.name &&
           other.enabled == this.enabled &&
@@ -270,7 +270,7 @@ class DataSource extends DataClass implements Insertable<DataSource> {
           other.config == this.config);
 }
 
-class DataSourcesCompanion extends UpdateCompanion<DataSource> {
+class DataSourcesCompanion extends UpdateCompanion<DataSourcesRow> {
   final Value<String> id;
   final Value<String> name;
   final Value<bool> enabled;
@@ -295,7 +295,7 @@ class DataSourcesCompanion extends UpdateCompanion<DataSource> {
   }) : id = Value(id),
        name = Value(name),
        config = Value(config);
-  static Insertable<DataSource> custom({
+  static Insertable<DataSourcesRow> custom({
     Expression<String>? id,
     Expression<String>? name,
     Expression<bool>? enabled,
@@ -1358,17 +1358,17 @@ class $$DataSourcesTableTableManager
         RootTableManager<
           _$AppDatabase,
           $DataSourcesTable,
-          DataSource,
+          DataSourcesRow,
           $$DataSourcesTableFilterComposer,
           $$DataSourcesTableOrderingComposer,
           $$DataSourcesTableAnnotationComposer,
           $$DataSourcesTableCreateCompanionBuilder,
           $$DataSourcesTableUpdateCompanionBuilder,
           (
-            DataSource,
-            BaseReferences<_$AppDatabase, $DataSourcesTable, DataSource>,
+            DataSourcesRow,
+            BaseReferences<_$AppDatabase, $DataSourcesTable, DataSourcesRow>,
           ),
-          DataSource,
+          DataSourcesRow,
           PrefetchHooks Function()
         > {
   $$DataSourcesTableTableManager(_$AppDatabase db, $DataSourcesTable table)
@@ -1426,17 +1426,17 @@ typedef $$DataSourcesTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
       $DataSourcesTable,
-      DataSource,
+      DataSourcesRow,
       $$DataSourcesTableFilterComposer,
       $$DataSourcesTableOrderingComposer,
       $$DataSourcesTableAnnotationComposer,
       $$DataSourcesTableCreateCompanionBuilder,
       $$DataSourcesTableUpdateCompanionBuilder,
       (
-        DataSource,
-        BaseReferences<_$AppDatabase, $DataSourcesTable, DataSource>,
+        DataSourcesRow,
+        BaseReferences<_$AppDatabase, $DataSourcesTable, DataSourcesRow>,
       ),
-      DataSource,
+      DataSourcesRow,
       PrefetchHooks Function()
     >;
 typedef $$BlockedKeywordsTableCreateCompanionBuilder =

@@ -8,6 +8,7 @@ import 'services/feed_source.dart';
 import 'ui/common/webview_page.dart';
 import 'ui/detail/article_detail_page.dart';
 import 'ui/feed/feed_list_page.dart';
+import 'ui/settings/backup_page.dart';
 import 'ui/settings/blocked_keyword_page.dart';
 import 'ui/settings/data_source_edit_page.dart';
 import 'ui/settings/data_source_list_page.dart';
@@ -81,6 +82,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings/blocked',
         builder: (context, state) => const BlockedKeywordPage(),
+      ),
+      GoRoute(
+        path: '/settings/backup',
+        builder: (context, state) => const BackupPage(),
       ),
     ],
   );

@@ -73,13 +73,26 @@ class AppDatabase extends _$AppDatabase {
     return row?.config;
   }
 
-  /// 插入或更新（id 相同就覆盖）
-  Future<void> upsertDataSource(DataSourceConfig config) async {
-    // 已存在的源沿用原来的 Tab 序号（否则改个名字就被挤到末尾），
-    // 新增的源排到所有 Tab 的最后一位。
-    final existingRow = await (select(
-      dataSources,
-    )..where((t) => t.id.equals(config.id))).getSingleOrNull();
+  /// 查出数据源的原始行（含 sortOrder 等表字段，导出备份时需要）。
+  Future<List<DataSourcesRow>> getAllDataSourceRows() {
+    return select(dataSources).get();
+  }
+
+  /// 插入或更新（id 相同就覆盖）。
+  ///
+  /// [sortOrder] 显式指定 Tab 序号时直接用它（导入备份要靠它还原用户排好的顺序）；
+  /// 不传时走默认策略：已存在的源沿用原序号（否则改个名字就被挤到末尾），
+  /// 新增的源排到所有 Tab 的最后一位。
+  Future<void> upsertDataSource(
+    DataSourceConfig config, {
+    int? sortOrder,
+  }) async {
+    // 只在没有显式指定序号时才需要查旧值，省一次数据库查询
+    final existingRow = sortOrder == null
+        ? await (select(
+            dataSources,
+          )..where((t) => t.id.equals(config.id))).getSingleOrNull()
+        : null;
 
     await into(dataSources).insertOnConflictUpdate(
       DataSourcesCompanion.insert(
@@ -88,9 +101,14 @@ class AppDatabase extends _$AppDatabase {
         name: config.name,
         enabled: Value(config.enabled),
         config: config,
-        sortOrder: Value(existingRow?.sortOrder ?? await _nextSortOrder()),
+        sortOrder: Value(sortOrder ?? existingRow?.sortOrder ?? await _nextSortOrder()),
       ),
     );
+  }
+
+  /// 删除所有数据源（导入备份的"覆盖"模式用，配合事务保证可回滚）。
+  Future<int> clearAllDataSources() {
+    return delete(dataSources).go();
   }
 
   // ===================== Tab 排序序号相关 DAO =====================
@@ -184,6 +202,26 @@ class AppDatabase extends _$AppDatabase {
     ).insertOnConflictUpdate(BlockedKeywordsCompanion.insert(word: word));
   }
 
+  /// 批量添加屏蔽词（导入备份用；已存在的会被忽略，不会重复）。
+  Future<void> addBlockedKeywords(List<String> words) async {
+    if (words.isEmpty) return;
+    await batch((b) {
+      for (final w in words) {
+        b.insert(
+          blockedKeywords,
+          BlockedKeywordsCompanion.insert(word: w),
+          // 已存在就跳过（word 列有唯一约束，硬插会抛异常）
+          mode: InsertMode.insertOrIgnore,
+        );
+      }
+    });
+  }
+
+  /// 删除所有屏蔽词（导入备份的"覆盖"模式用）。
+  Future<int> clearAllBlockedKeywords() {
+    return delete(blockedKeywords).go();
+  }
+
   /// 删除一个屏蔽词
   Future<int> deleteBlockedKeyword(String word) {
     return (delete(blockedKeywords)..where((t) => t.word.equals(word))).go();
@@ -196,7 +234,7 @@ class AppDatabase extends _$AppDatabase {
     final rows = await (select(
       installedPlugins,
     )..orderBy([(t) => OrderingTerm.desc(t.installedAt)])).get();
-    return rows.map(_rowToInstalledPlugin).toList();
+    return rows.map(rowToInstalledPlugin).toList();
   }
 
   /// 根据 id 查单个插件。
@@ -204,15 +242,23 @@ class AppDatabase extends _$AppDatabase {
     final row = await (select(
       installedPlugins,
     )..where((t) => t.id.equals(id))).getSingleOrNull();
-    return row == null ? null : _rowToInstalledPlugin(row);
+    return row == null ? null : rowToInstalledPlugin(row);
   }
 
   /// 插入或更新（id 相同就覆盖脚本 / 清单）。
-  Future<void> upsertInstalledPlugin(InstalledPlugin plugin) async {
-    // 同 upsertDataSource：已安装的插件沿用原 Tab 序号，新装的排到最后
-    final existingRow = await (select(
-      installedPlugins,
-    )..where((t) => t.id.equals(plugin.id))).getSingleOrNull();
+  ///
+  /// [sortOrder] 语义同 [upsertDataSource]：显式传就按它写，
+  /// 不传则已安装的沿用原序号、新装的排到最后。
+  Future<void> upsertInstalledPlugin(
+    InstalledPlugin plugin, {
+    int? sortOrder,
+  }) async {
+    // 同 upsertDataSource：只在没有显式指定序号时才查旧值
+    final existingRow = sortOrder == null
+        ? await (select(
+            installedPlugins,
+          )..where((t) => t.id.equals(plugin.id))).getSingleOrNull()
+        : null;
 
     await into(installedPlugins).insertOnConflictUpdate(
       InstalledPluginsCompanion.insert(
@@ -226,9 +272,21 @@ class AppDatabase extends _$AppDatabase {
         // 不需要 Value() 包裹（enabled 有默认值才需要 Value）
         installedAt: plugin.installedAt,
         version: plugin.version,
-        sortOrder: Value(existingRow?.sortOrder ?? await _nextSortOrder()),
+        sortOrder: Value(
+          sortOrder ?? existingRow?.sortOrder ?? await _nextSortOrder(),
+        ),
       ),
     );
+  }
+
+  /// 查出已安装插件的原始行（含 sortOrder 等表字段，导出备份时需要）。
+  Future<List<InstalledPluginsRow>> getAllPluginRows() {
+    return select(installedPlugins).get();
+  }
+
+  /// 删除所有已安装插件（导入备份的"覆盖"模式用）。
+  Future<int> clearAllPlugins() {
+    return delete(installedPlugins).go();
   }
 
   /// 删除插件。
@@ -246,7 +304,7 @@ class AppDatabase extends _$AppDatabase {
   /// 把数据库行（含 manifestJson 列）组装成 [InstalledPlugin]。
   /// 注意：row 的类型是 InstalledPluginsRow（drift 生成），
   /// 不是手写的 InstalledPlugin 模型——两者是不同类，见 installed_plugin_table.dart 的说明。
-  InstalledPlugin _rowToInstalledPlugin(InstalledPluginsRow row) {
+  InstalledPlugin rowToInstalledPlugin(InstalledPluginsRow row) {
     final manifest = PluginManifest.fromJson(
       jsonDecode(row.manifestJson) as Map<String, dynamic>,
     );

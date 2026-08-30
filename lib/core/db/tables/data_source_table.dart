@@ -27,6 +27,7 @@ class DataSourceConverter extends TypeConverter<DataSourceConfig, String> {
 }
 
 /// 数据源表：一行 = 一个数据源配置。
+@DataClassName('DataSourcesRow')
 class DataSources extends Table {
   /// 数据源唯一 id（主键）
   TextColumn get id => text()();

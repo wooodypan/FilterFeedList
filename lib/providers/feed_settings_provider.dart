@@ -52,4 +52,12 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
     await prefs.setBool(_kShowThumb, v);
     state = state.copyWith(showThumb: v);
   }
+
+  /// 一次性写入整份设置（导入备份时用：备份里的开关要整体还原，逐项 set 会多写好几次）。
+  Future<void> apply(FeedSettings settings) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kAggregate, settings.aggregateMode);
+    await prefs.setBool(_kShowThumb, settings.showThumb);
+    state = settings;
+  }
 }

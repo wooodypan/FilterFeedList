@@ -30,6 +30,13 @@ class SettingsPage extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/settings/blocked'),
           ),
+          ListTile(
+            leading: const Icon(Icons.backup),
+            title: const Text('备份与恢复'),
+            subtitle: const Text('导出 / 导入全部配置（含订阅源与屏蔽词）'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/backup'),
+          ),
           const Divider(),
           SwitchListTile(
             secondary: const Icon(Icons.merge_type),

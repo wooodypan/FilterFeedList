@@ -31,6 +31,9 @@ class DataSourceNotifier
     }
   }
 
+  /// 重新从数据库加载（供外部在数据被批量改动后调用，如"导入备份"）。
+  Future<void> reload() => _load();
+
   /// 新增或更新一个数据源（id 相同即覆盖）
   Future<void> upsert(DataSourceConfig config) async {
     await _db.upsertDataSource(config);
