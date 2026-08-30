@@ -31,9 +31,12 @@ class FeedItemCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 缩略图（可关；为空或加载失败都显示占位图）
-              if (showThumb) _Thumb(url: article.thumbUrl),
-              if (showThumb) const SizedBox(width: 12),
+              // 缩略图：开关打开【且】文章确实带图时才画；
+              // URL 为空就整体隐藏（不再画灰色占位框），让右侧文字区占满整行。
+              if (showThumb && article.thumbUrl.isNotEmpty)
+                _Thumb(url: article.thumbUrl),
+              if (showThumb && article.thumbUrl.isNotEmpty)
+                const SizedBox(width: 12),
               // 右侧文字区
               Expanded(
                 child: Column(
@@ -85,17 +88,8 @@ class _Thumb extends StatelessWidget {
     const size = 84.0;
     const radius = BorderRadius.all(Radius.circular(8));
 
-    // 没有 URL -> 直接占位
-    if (url.isEmpty) {
-      return const SizedBox(
-        width: size,
-        height: size,
-        child: DecoratedBox(
-          decoration: BoxDecoration(color: Colors.black12, borderRadius: radius),
-          child: Icon(Icons.image, color: Colors.grey),
-        ),
-      );
-    }
+    // 注意：本 widget 只在 URL 非空时被调用（FeedItemCard 已先判断非空），
+    // 所以这里无需再处理空 URL，直接交给缓存图片组件加载即可。
 
     return ClipRRect(
       borderRadius: radius,
@@ -109,7 +103,10 @@ class _Thumb extends StatelessWidget {
           width: size,
           height: size,
           child: DecoratedBox(
-            decoration: BoxDecoration(color: Colors.black12, borderRadius: radius),
+            decoration: BoxDecoration(
+              color: Colors.black12,
+              borderRadius: radius,
+            ),
             child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
         ),
@@ -118,7 +115,10 @@ class _Thumb extends StatelessWidget {
           width: size,
           height: size,
           child: DecoratedBox(
-            decoration: BoxDecoration(color: Colors.black12, borderRadius: radius),
+            decoration: BoxDecoration(
+              color: Colors.black12,
+              borderRadius: radius,
+            ),
             child: Icon(Icons.broken_image, color: Colors.grey),
           ),
         ),
@@ -136,12 +136,15 @@ class _Meta extends StatelessWidget {
   Widget build(BuildContext context) {
     final parts = <String>[];
     if (article.author?.isNotEmpty == true) parts.add(article.author!);
-    if (article.publishTime?.isNotEmpty == true) parts.add(article.publishTime!);
+    if (article.publishTime?.isNotEmpty == true)
+      parts.add(article.publishTime!);
     if (parts.isEmpty) return const SizedBox.shrink();
 
     return Text(
       parts.join('  ·  '),
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.grey),
+      style: Theme.of(
+        context,
+      ).textTheme.labelSmall?.copyWith(color: Colors.grey),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );
