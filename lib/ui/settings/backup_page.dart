@@ -3,11 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/app_backup.dart';
+import '../../models/webdav_config.dart';
 import '../../providers/backup_provider.dart';
 import '../../providers/blocked_keyword_provider.dart';
 import '../../providers/data_source_provider.dart';
 import '../../providers/plugin_provider.dart';
+import '../../providers/webdav_provider.dart';
 import '../../services/backup_service.dart';
+import '../../services/webdav_service.dart';
 
 /// 配置备份与恢复页。
 ///
@@ -149,6 +152,39 @@ class _BackupPageState extends ConsumerState<BackupPage> {
             ),
           ),
 
+          // ---- WebDAV 同步 ----
+          _SectionHeader('WebDAV 同步'),
+          Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Column(
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.settings_ethernet),
+                  title: const Text('WebDAV 设置'),
+                  subtitle: const Text('填写服务器地址 / 账号，配置会保存到本地'),
+                  enabled: !_busy,
+                  onTap: _openWebDavSettings,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.cloud_upload),
+                  title: const Text('上传到 WebDAV'),
+                  subtitle: const Text('把当前配置备份上传到 WebDAV 服务器'),
+                  enabled: !_busy,
+                  onTap: _uploadToWebDav,
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.cloud_download),
+                  title: const Text('从 WebDAV 下载'),
+                  subtitle: const Text('从 WebDAV 服务器选一份备份导入'),
+                  enabled: !_busy,
+                  onTap: _downloadFromWebDav,
+                ),
+              ],
+            ),
+          ),
+
           // 处理中给一个明确进度，避免用户以为卡住了
           if (_busy)
             const Padding(
@@ -211,6 +247,75 @@ class _BackupPageState extends ConsumerState<BackupPage> {
       }
       if (!mounted) return;
       await _confirmAndImport(backup, sourceName: '粘贴的内容');
+    });
+  }
+
+  /// 打开 WebDAV 设置对话框（填写并保存服务器配置，可测试连接）。
+  Future<void> _openWebDavSettings() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) => const _WebDavConfigDialog(),
+    );
+  }
+
+  /// 上传当前配置到 WebDAV。
+  Future<void> _uploadToWebDav() async {
+    final cfg = ref.read(webDavConfigProvider);
+    if (!cfg.isConfigured) {
+      _showError('请先在「WebDAV 设置」里填写服务器地址');
+      return;
+    }
+    await _runBusy(() async {
+      final remotePath = await ref
+          .read(backupControllerProvider)
+          .exportToWebDav(cfg);
+      if (!mounted) return;
+      _showMessage('已上传到 WebDAV：$remotePath');
+      setState(() => _lastExportPath = null);
+    });
+  }
+
+  /// 从 WebDAV 下载一份备份并导入。
+  ///
+  /// 流程：列出远程备份 → 用户选一个 → 下载并解析 → 选导入方式 → 写库。
+  Future<void> _downloadFromWebDav() async {
+    final cfg = ref.read(webDavConfigProvider);
+    if (!cfg.isConfigured) {
+      _showError('请先在「WebDAV 设置」里填写服务器地址');
+      return;
+    }
+
+    // 1) 列出远程备份（这一步要忙等，可能连不上）
+    List<RemoteBackupFile>? backups;
+    await _runBusy(() async {
+      backups = await ref.read(backupControllerProvider).listWebDavBackups(cfg);
+    });
+    if (!mounted) return;
+    if (backups == null || backups!.isEmpty) {
+      _showError('WebDAV 目录里没有找到任何 .json 备份文件');
+      return;
+    }
+
+    // 2) 用户选一个（不在忙等里，给用户看列表慢慢点）
+    final picked = await showDialog<RemoteBackupFile>(
+      context: context,
+      builder: (_) => _WebDavFilePickerDialog(backups: backups!),
+    );
+    if (picked == null || !mounted) return;
+
+    // 3) 下载并解析（忙等）
+    AppBackup? backup;
+    await _runBusy(() async {
+      final text = await ref
+          .read(backupControllerProvider)
+          .downloadFromWebDav(cfg, picked.path);
+      backup = BackupService.parse(text);
+    });
+    if (!mounted || backup == null) return;
+
+    // 4) 复用"确认导入"对话框（里面选合并/覆盖，再写库）
+    await _runBusy(() async {
+      await _confirmAndImport(backup!, sourceName: picked.name);
     });
   }
 
@@ -472,6 +577,189 @@ class _ImportConfirmDialog extends StatelessWidget {
           Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         ],
       ),
+    );
+  }
+}
+
+/// WebDAV 连接设置对话框。
+///
+/// 四个输入框（服务器 / 用户名 / 密码 / 远程目录），可"测试连接"，
+/// 确认后写入 [webDavConfigProvider]（落到 SharedPreferences）。
+class _WebDavConfigDialog extends ConsumerStatefulWidget {
+  const _WebDavConfigDialog();
+
+  @override
+  ConsumerState<_WebDavConfigDialog> createState() =>
+      _WebDavConfigDialogState();
+}
+
+class _WebDavConfigDialogState extends ConsumerState<_WebDavConfigDialog> {
+  final _serverCtrl = TextEditingController();
+  final _userCtrl = TextEditingController();
+  final _passCtrl = TextEditingController();
+  final _dirCtrl = TextEditingController();
+  bool _testing = false;
+  String? _testResult;
+
+  @override
+  void initState() {
+    super.initState();
+    // 用已保存的配置预填，方便用户改一处而不是全重填
+    final cfg = ref.read(webDavConfigProvider);
+    _serverCtrl.text = cfg.serverUrl;
+    _userCtrl.text = cfg.username;
+    _passCtrl.text = cfg.password;
+    _dirCtrl.text = cfg.remoteDir;
+  }
+
+  /// 从输入框拼出当前配置对象
+  WebDavConfig get _current => WebDavConfig(
+    serverUrl: _serverCtrl.text.trim(),
+    username: _userCtrl.text.trim(),
+    password: _passCtrl.text,
+    remoteDir: _dirCtrl.text.trim(),
+  );
+
+  Future<void> _test() async {
+    final cfg = _current;
+    if (cfg.serverUrl.isEmpty) {
+      setState(() => _testResult = '请先填写服务器地址');
+      return;
+    }
+    setState(() {
+      _testing = true;
+      _testResult = null;
+    });
+    try {
+      await ref.read(backupControllerProvider).testWebDavConnection(cfg);
+      setState(() => _testResult = '连接成功');
+    } catch (e) {
+      setState(() => _testResult = '连接失败：$e');
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _serverCtrl.dispose();
+    _userCtrl.dispose();
+    _passCtrl.dispose();
+    _dirCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      title: const Text('WebDAV 设置'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _serverCtrl,
+              decoration: const InputDecoration(
+                labelText: '服务器地址',
+                hintText: 'https://dav.example.com/dav/',
+              ),
+              keyboardType: TextInputType.url,
+            ),
+            TextField(
+              controller: _userCtrl,
+              decoration: const InputDecoration(labelText: '用户名'),
+            ),
+            TextField(
+              controller: _passCtrl,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: '密码'),
+            ),
+            TextField(
+              controller: _dirCtrl,
+              decoration: const InputDecoration(
+                labelText: '远程目录',
+                hintText: '如 filterflow，留空为根目录',
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (_testing) const CircularProgressIndicator(),
+            if (_testResult != null)
+              Text(
+                _testResult!,
+                style: TextStyle(
+                  color: _testResult!.contains('成功')
+                      ? Colors.green
+                      : theme.colorScheme.error,
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+        TextButton(
+          onPressed: _testing ? null : _test,
+          child: const Text('测试连接'),
+        ),
+        FilledButton(
+          onPressed: () {
+            ref.read(webDavConfigProvider.notifier).save(_current);
+            Navigator.of(context).pop();
+          },
+          child: const Text('保存'),
+        ),
+      ],
+    );
+  }
+}
+
+/// 从 WebDAV 远程备份列表里挑一个。
+class _WebDavFilePickerDialog extends StatelessWidget {
+  final List<RemoteBackupFile> backups;
+
+  const _WebDavFilePickerDialog({required this.backups});
+
+  /// 把修改时间格式化成「2026-08-29 23:35」
+  String _fmt(DateTime t) {
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('选择 WebDAV 备份'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 320,
+        child: backups.isEmpty
+            ? const Center(child: Text('没有可用的备份文件'))
+            : ListView.separated(
+                itemCount: backups.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (_, i) {
+                  final f = backups[i];
+                  return ListTile(
+                    title: Text(f.name),
+                    subtitle: f.modified != null
+                        ? Text(_fmt(f.modified!))
+                        : null,
+                    trailing: const Icon(Icons.download),
+                    onTap: () => Navigator.of(context).pop(f),
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('取消'),
+        ),
+      ],
     );
   }
 }

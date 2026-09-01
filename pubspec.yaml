@@ -66,6 +66,10 @@ dependencies:
   url_launcher: ^6.3.2
   file_picker: ^12.1.2
 
+  # ===== WebDAV 备份同步：第三方开源库（MIT，基于 dio，复用本项目已有的 dio 5.x）=====
+  # 用于把配置备份上传到 / 从 WebDAV 服务器下载（坚果云、Nextcloud、群晖 Drive 等）。
+  webdav_client: ^1.2.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
