@@ -77,16 +77,16 @@ class PluginFeedRepository {
     }
 
     // 单条解析失败（畸形数据）直接跳过，不让整个信息流崩掉
-    final articles =
-        articlesRaw
-            .whereType<Map<String, dynamic>>()
-            .map((e) => PluginArticle.fromJson(e, plugin.id))
-            .whereType<PluginArticle>()
-            .map((a) => a.toFeedArticle(plugin.id))
-            .toList();
+    final articles = articlesRaw
+        .whereType<Map<String, dynamic>>()
+        .map((e) => PluginArticle.fromJson(e, plugin.id))
+        .whereType<PluginArticle>()
+        .map((a) => a.toFeedArticle(plugin.id))
+        .toList();
 
     // ---- 阶段 4：屏蔽词过滤（和 JSONPath 数据源走同一套逻辑，保证一致）----
-    final keywords = await _db.getAllBlockedKeywords();
+    // 只取未过期的词，过期词自动失效，但行仍保留在库里
+    final keywords = await _db.getActiveBlockedKeywords();
     return KeywordFilterEngine(keywords).filter(articles);
   }
 

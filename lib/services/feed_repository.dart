@@ -69,9 +69,10 @@ class FeedRepository {
       rethrow;
     }
 
-    // 5) 从数据库读屏蔽词，过滤后再返回
-    //    （过滤放在 Repository 而非 UI，保证分页/去重逻辑都绕不过过滤）
-    final keywords = await _db.getAllBlockedKeywords();
+    // 5) 从数据库读"仍然生效"的屏蔽词，过滤后再返回
+    //    （只取未过期的词，过期的会自动失效；过滤放在 Repository 而非 UI，
+    //    保证分页/去重逻辑都绕不过过滤）
+    final keywords = await _db.getActiveBlockedKeywords();
     return KeywordFilterEngine(keywords).filter(articles);
   }
 }

@@ -29,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase({QueryExecutor? executor}) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   /// 迁移策略：只在"加列"这种向后兼容的结构变更时升级。
   ///
@@ -44,6 +44,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 3) {
         await migrator.addColumn(dataSources, dataSources.sortOrder);
         await migrator.addColumn(installedPlugins, installedPlugins.sortOrder);
+      }
+      // v3 -> v4：给屏蔽词表加 expiresAt（屏蔽到期时间）列。
+      // 该列可空，老数据默认就是 NULL —— 即「永久屏蔽」，符合要求，
+      // 所以这里不需要再写 UPDATE 把老数据回填成"永久"。
+      if (from < 4) {
+        await migrator.addColumn(blockedKeywords, blockedKeywords.expiresAt);
       }
     },
   );
@@ -101,7 +107,9 @@ class AppDatabase extends _$AppDatabase {
         name: config.name,
         enabled: Value(config.enabled),
         config: config,
-        sortOrder: Value(sortOrder ?? existingRow?.sortOrder ?? await _nextSortOrder()),
+        sortOrder: Value(
+          sortOrder ?? existingRow?.sortOrder ?? await _nextSortOrder(),
+        ),
       ),
     );
   }
@@ -179,12 +187,41 @@ class AppDatabase extends _$AppDatabase {
 
   // ===================== 屏蔽词相关 DAO =====================
 
-  /// 查出所有屏蔽词（按添加时间倒序），返回纯字符串列表
+  /// 查出所有屏蔽词（按添加时间倒序），返回纯字符串列表。
+  ///
+  /// 注意：这里**不做过期过滤**——导出备份、单测断言等场景需要"全部词"，
+  /// 包括已经过期的（备份时当作永久词看待）。真正给过滤引擎用的
+  /// 「只取未过期的词」请见 [getActiveBlockedKeywords]。
   Future<List<String>> getAllBlockedKeywords() async {
     final rows = await (select(
       blockedKeywords,
     )..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).get();
     return rows.map((r) => r.word).toList();
+  }
+
+  /// 只返回"当前仍然生效"的屏蔽词字符串列表，供三个信息流仓库做过滤用。
+  ///
+  /// 生效判定：expiresAt 为 NULL（永久）或 仍晚于当前时间（未过期）。
+  /// 已过期但还躺在库里的词不会进入结果，从而自动失效。
+  Future<List<String>> getActiveBlockedKeywords() async {
+    final now = DateTime.now();
+    final rows = await (select(
+      blockedKeywords,
+    )..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).get();
+    return rows
+        .where((r) => r.expiresAt == null || r.expiresAt!.isAfter(now))
+        .map((r) => r.word)
+        .toList();
+  }
+
+  /// 查出所有屏蔽词完整行（含 expiresAt），按添加时间倒序，给管理页展示用。
+  ///
+  /// 返回的是 drift 自动生成的数据类 [BlockedKeyword]，自带
+  /// id / word / createdAt / expiresAt 四个字段；页面据此判断"是否已过期"。
+  Future<List<BlockedKeyword>> getAllBlockedKeywordEntries() async {
+    return (select(
+      blockedKeywords,
+    )..orderBy([(t) => OrderingTerm.desc(t.createdAt)])).get();
   }
 
   /// 监听屏蔽词变化（UI 自动刷新）
@@ -195,14 +232,38 @@ class AppDatabase extends _$AppDatabase {
         .map((rows) => rows.map((r) => r.word).toList());
   }
 
-  /// 添加一个屏蔽词（重复添加会忽略）
-  Future<void> addBlockedKeyword(String word) {
-    return into(
+  /// 添加一个屏蔽词（重复添加会忽略）。
+  ///
+  /// [expiresAt] 为 NULL 表示永久屏蔽（默认）；传具体时间则表示只在该时间前生效。
+  Future<void> addBlockedKeyword(String word, {DateTime? expiresAt}) {
+    return into(blockedKeywords).insertOnConflictUpdate(
+      BlockedKeywordsCompanion.insert(word: word, expiresAt: Value(expiresAt)),
+    );
+  }
+
+  /// 修改一个屏蔽词：可以改词面，也可以改到期时间（或两者都改）。
+  ///
+  /// [oldWord] 是要改的那一行的原词面（因为 word 是定位键）；
+  /// [newWord] 是新词面；[expiresAt] 为新到期时间（NULL=永久）。
+  /// 内部用 UPDATE ... WHERE word = oldWord 实现，不删不插、不丢 createdAt。
+  Future<int> updateBlockedKeyword(
+    String oldWord,
+    String newWord, {
+    DateTime? expiresAt,
+  }) {
+    return (update(
       blockedKeywords,
-    ).insertOnConflictUpdate(BlockedKeywordsCompanion.insert(word: word));
+    )..where((t) => t.word.equals(oldWord))).write(
+      BlockedKeywordsCompanion(
+        word: Value(newWord),
+        expiresAt: Value(expiresAt),
+      ),
+    );
   }
 
   /// 批量添加屏蔽词（导入备份用；已存在的会被忽略，不会重复）。
+  ///
+  /// 导入的词一律当作"永久屏蔽"（expiresAt 不传 = NULL），保持备份格式不变。
   Future<void> addBlockedKeywords(List<String> words) async {
     if (words.isEmpty) return;
     await batch((b) {

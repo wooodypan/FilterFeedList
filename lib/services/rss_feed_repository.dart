@@ -61,7 +61,8 @@ class RssFeedRepository {
     try {
       final articles = RssFeedParser.parse(doc, sourceId: config.id);
       // 屏蔽词过滤放在仓库层（对齐 FeedRepository），保证去重/展示都绕不过过滤
-      final keywords = await _db.getAllBlockedKeywords();
+      // 只取未过期的词——过期词自动失效，但行仍留在库里供管理页显示
+      final keywords = await _db.getActiveBlockedKeywords();
       return KeywordFilterEngine(keywords).filter(articles);
     } on FeedParseException {
       rethrow;

@@ -412,8 +412,19 @@ class $BlockedKeywordsTable extends BlockedKeywords
     requiredDuringInsert: false,
     defaultValue: currentDateAndTime,
   );
+  static const VerificationMeta _expiresAtMeta = const VerificationMeta(
+    'expiresAt',
+  );
   @override
-  List<GeneratedColumn> get $columns => [id, word, createdAt];
+  late final GeneratedColumn<DateTime> expiresAt = GeneratedColumn<DateTime>(
+    'expires_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, word, createdAt, expiresAt];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -443,6 +454,12 @@ class $BlockedKeywordsTable extends BlockedKeywords
         createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
       );
     }
+    if (data.containsKey('expires_at')) {
+      context.handle(
+        _expiresAtMeta,
+        expiresAt.isAcceptableOrUnknown(data['expires_at']!, _expiresAtMeta),
+      );
+    }
     return context;
   }
 
@@ -464,6 +481,10 @@ class $BlockedKeywordsTable extends BlockedKeywords
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      expiresAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expires_at'],
+      ),
     );
   }
 
@@ -482,10 +503,21 @@ class BlockedKeyword extends DataClass implements Insertable<BlockedKeyword> {
 
   /// 添加时间（用于排序展示）
   final DateTime createdAt;
+
+  /// 屏蔽到期时间。
+  ///
+  /// - 为 NULL 表示「永久屏蔽」，永远不会自动失效；
+  /// - 有值表示「只在该时间之前生效」，过期后自动失效（但行仍保留在库里，
+  ///   便于页面显示「已过期」状态，也方便用户续期 / 恢复）。
+  ///
+  /// 老数据库升级时这一列默认就是 NULL，天然等价于「永久」，
+  /// 无需写额外 UPDATE 把老数据回填成永久。
+  final DateTime? expiresAt;
   const BlockedKeyword({
     required this.id,
     required this.word,
     required this.createdAt,
+    this.expiresAt,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -493,6 +525,9 @@ class BlockedKeyword extends DataClass implements Insertable<BlockedKeyword> {
     map['id'] = Variable<int>(id);
     map['word'] = Variable<String>(word);
     map['created_at'] = Variable<DateTime>(createdAt);
+    if (!nullToAbsent || expiresAt != null) {
+      map['expires_at'] = Variable<DateTime>(expiresAt);
+    }
     return map;
   }
 
@@ -501,6 +536,9 @@ class BlockedKeyword extends DataClass implements Insertable<BlockedKeyword> {
       id: Value(id),
       word: Value(word),
       createdAt: Value(createdAt),
+      expiresAt: expiresAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(expiresAt),
     );
   }
 
@@ -513,6 +551,7 @@ class BlockedKeyword extends DataClass implements Insertable<BlockedKeyword> {
       id: serializer.fromJson<int>(json['id']),
       word: serializer.fromJson<String>(json['word']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      expiresAt: serializer.fromJson<DateTime?>(json['expiresAt']),
     );
   }
   @override
@@ -522,20 +561,27 @@ class BlockedKeyword extends DataClass implements Insertable<BlockedKeyword> {
       'id': serializer.toJson<int>(id),
       'word': serializer.toJson<String>(word),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'expiresAt': serializer.toJson<DateTime?>(expiresAt),
     };
   }
 
-  BlockedKeyword copyWith({int? id, String? word, DateTime? createdAt}) =>
-      BlockedKeyword(
-        id: id ?? this.id,
-        word: word ?? this.word,
-        createdAt: createdAt ?? this.createdAt,
-      );
+  BlockedKeyword copyWith({
+    int? id,
+    String? word,
+    DateTime? createdAt,
+    Value<DateTime?> expiresAt = const Value.absent(),
+  }) => BlockedKeyword(
+    id: id ?? this.id,
+    word: word ?? this.word,
+    createdAt: createdAt ?? this.createdAt,
+    expiresAt: expiresAt.present ? expiresAt.value : this.expiresAt,
+  );
   BlockedKeyword copyWithCompanion(BlockedKeywordsCompanion data) {
     return BlockedKeyword(
       id: data.id.present ? data.id.value : this.id,
       word: data.word.present ? data.word.value : this.word,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      expiresAt: data.expiresAt.present ? data.expiresAt.value : this.expiresAt,
     );
   }
 
@@ -544,45 +590,52 @@ class BlockedKeyword extends DataClass implements Insertable<BlockedKeyword> {
     return (StringBuffer('BlockedKeyword(')
           ..write('id: $id, ')
           ..write('word: $word, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, word, createdAt);
+  int get hashCode => Object.hash(id, word, createdAt, expiresAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       (other is BlockedKeyword &&
           other.id == this.id &&
           other.word == this.word &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.expiresAt == this.expiresAt);
 }
 
 class BlockedKeywordsCompanion extends UpdateCompanion<BlockedKeyword> {
   final Value<int> id;
   final Value<String> word;
   final Value<DateTime> createdAt;
+  final Value<DateTime?> expiresAt;
   const BlockedKeywordsCompanion({
     this.id = const Value.absent(),
     this.word = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
   });
   BlockedKeywordsCompanion.insert({
     this.id = const Value.absent(),
     required String word,
     this.createdAt = const Value.absent(),
+    this.expiresAt = const Value.absent(),
   }) : word = Value(word);
   static Insertable<BlockedKeyword> custom({
     Expression<int>? id,
     Expression<String>? word,
     Expression<DateTime>? createdAt,
+    Expression<DateTime>? expiresAt,
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
       if (word != null) 'word': word,
       if (createdAt != null) 'created_at': createdAt,
+      if (expiresAt != null) 'expires_at': expiresAt,
     });
   }
 
@@ -590,11 +643,13 @@ class BlockedKeywordsCompanion extends UpdateCompanion<BlockedKeyword> {
     Value<int>? id,
     Value<String>? word,
     Value<DateTime>? createdAt,
+    Value<DateTime?>? expiresAt,
   }) {
     return BlockedKeywordsCompanion(
       id: id ?? this.id,
       word: word ?? this.word,
       createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
     );
   }
 
@@ -610,6 +665,9 @@ class BlockedKeywordsCompanion extends UpdateCompanion<BlockedKeyword> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (expiresAt.present) {
+      map['expires_at'] = Variable<DateTime>(expiresAt.value);
+    }
     return map;
   }
 
@@ -618,7 +676,8 @@ class BlockedKeywordsCompanion extends UpdateCompanion<BlockedKeyword> {
     return (StringBuffer('BlockedKeywordsCompanion(')
           ..write('id: $id, ')
           ..write('word: $word, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('expiresAt: $expiresAt')
           ..write(')'))
         .toString();
   }
@@ -1444,12 +1503,14 @@ typedef $$BlockedKeywordsTableCreateCompanionBuilder =
       Value<int> id,
       required String word,
       Value<DateTime> createdAt,
+      Value<DateTime?> expiresAt,
     });
 typedef $$BlockedKeywordsTableUpdateCompanionBuilder =
     BlockedKeywordsCompanion Function({
       Value<int> id,
       Value<String> word,
       Value<DateTime> createdAt,
+      Value<DateTime?> expiresAt,
     });
 
 class $$BlockedKeywordsTableFilterComposer
@@ -1473,6 +1534,11 @@ class $$BlockedKeywordsTableFilterComposer
 
   ColumnFilters<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
     builder: (column) => ColumnFilters(column),
   );
 }
@@ -1500,6 +1566,11 @@ class $$BlockedKeywordsTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<DateTime> get expiresAt => $composableBuilder(
+    column: $table.expiresAt,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$BlockedKeywordsTableAnnotationComposer
@@ -1519,6 +1590,9 @@ class $$BlockedKeywordsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiresAt =>
+      $composableBuilder(column: $table.expiresAt, builder: (column) => column);
 }
 
 class $$BlockedKeywordsTableTableManager
@@ -1561,20 +1635,24 @@ class $$BlockedKeywordsTableTableManager
                 Value<int> id = const Value.absent(),
                 Value<String> word = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> expiresAt = const Value.absent(),
               }) => BlockedKeywordsCompanion(
                 id: id,
                 word: word,
                 createdAt: createdAt,
+                expiresAt: expiresAt,
               ),
           createCompanionCallback:
               ({
                 Value<int> id = const Value.absent(),
                 required String word,
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime?> expiresAt = const Value.absent(),
               }) => BlockedKeywordsCompanion.insert(
                 id: id,
                 word: word,
                 createdAt: createdAt,
+                expiresAt: expiresAt,
               ),
           withReferenceMapper: (p0) => p0
               .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
