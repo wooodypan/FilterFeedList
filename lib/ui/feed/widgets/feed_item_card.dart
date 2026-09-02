@@ -8,12 +8,14 @@ import '../text_explosion_sheet.dart';
 class FeedItemCard extends StatelessWidget {
   final FeedArticle article;
   final bool showThumb; // 是否显示缩略图（设置里可关）
+  final bool isRead; // 是否已读：读过的标题变灰，和未读区分开
   final VoidCallback onTap;
 
   const FeedItemCard({
     super.key,
     required this.article,
     this.showThumb = true,
+    this.isRead = false,
     required this.onTap,
   });
 
@@ -51,7 +53,10 @@ class FeedItemCard extends StatelessWidget {
                           TextExplosionSheet.show(context, article.title),
                       child: Text(
                         article.title,
-                        style: theme.textTheme.titleMedium,
+                        // 已读就把标题染灰，一眼区分"读过的"和"没读的"
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: isRead ? Colors.grey : null,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -60,13 +65,16 @@ class FeedItemCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         article.summary!,
-                        style: theme.textTheme.bodySmall,
+                        // 已读时摘要也跟着变浅，整体灰度更统一
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isRead ? Colors.grey : null,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                     const SizedBox(height: 8),
-                    _Meta(article: article),
+                    _Meta(article: article, isRead: isRead),
                   ],
                 ),
               ),
@@ -130,7 +138,8 @@ class _Thumb extends StatelessWidget {
 /// 卡片底部元信息：作者 · 时间
 class _Meta extends StatelessWidget {
   final FeedArticle article;
-  const _Meta({required this.article});
+  final bool isRead;
+  const _Meta({required this.article, this.isRead = false});
 
   @override
   Widget build(BuildContext context) {
@@ -142,9 +151,10 @@ class _Meta extends StatelessWidget {
 
     return Text(
       parts.join('  ·  '),
-      style: Theme.of(
-        context,
-      ).textTheme.labelSmall?.copyWith(color: Colors.grey),
+      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+        // 已读时元信息也淡一点；未读时保持原本的灰色
+        color: isRead ? Colors.grey.shade400 : Colors.grey,
+      ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
     );

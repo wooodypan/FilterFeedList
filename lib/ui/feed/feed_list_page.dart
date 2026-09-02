@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../models/feed_article.dart';
 import '../../providers/feed_list_provider.dart';
 import '../../providers/feed_settings_provider.dart';
+import '../../providers/read_articles_provider.dart';
 import '../../services/feed_source.dart';
 import 'widgets/feed_item_card.dart';
 import 'widgets/feed_source_tab_bar.dart';
@@ -237,6 +238,9 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
+    // 已读集合：用来给点开过的卡片标题染灰。这里 watch 一下，
+    // 标记已读后这个列表会自动刷新（但此时详情页盖在上面，返回后才看到灰色）。
+    final readIds = ref.watch(readArticlesProvider);
 
     // 首屏加载中
     if (state.loading && state.articles.isEmpty) {
@@ -299,6 +303,8 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
           return FeedItemCard(
             article: article,
             showThumb: widget.showThumb,
+            // 看一眼这篇有没有被标记成已读，决定标题要不要变灰
+            isRead: readIds.contains(article.id),
             onTap: () => _openDetail(context, article),
           );
         },
@@ -315,6 +321,9 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
       source = sources.where((s) => s.id == article.sourceId).firstOrNull;
     }
     if (source == null) return;
+    // 进入详情即视为"已读"：先把这篇文章 id 记进已读集合，
+    // 这样返回列表时它的标题已经变成灰色（区分未读）。
+    ref.read(readArticlesProvider.notifier).markRead(article.id);
     context.push('/detail', extra: {'article': article, 'source': source});
   }
 }

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import 'models/data_source_config.dart';
 import 'models/feed_article.dart';
+import 'providers/feed_settings_provider.dart';
 import 'services/feed_source.dart';
 import 'ui/common/webview_page.dart';
 import 'ui/detail/article_detail_page.dart';
@@ -12,6 +13,7 @@ import 'ui/settings/backup_page.dart';
 import 'ui/settings/blocked_keyword_page.dart';
 import 'ui/settings/data_source_edit_page.dart';
 import 'ui/settings/data_source_list_page.dart';
+import 'ui/settings/font_settings_page.dart';
 import 'ui/settings/rss_recommend_config.dart';
 import 'ui/settings/rss_source_edit_page.dart';
 import 'ui/settings/settings_page.dart';
@@ -84,6 +86,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const BlockedKeywordPage(),
       ),
       GoRoute(
+        path: '/settings/font',
+        builder: (context, state) => const FontSettingsPage(),
+      ),
+      GoRoute(
         path: '/settings/backup',
         builder: (context, state) => const BackupPage(),
       ),
@@ -98,11 +104,23 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    // 读取用户设置的字体缩放倍数（默认 1.0）
+    final fontScale = ref.watch(feedSettingsProvider).fontScale;
     return MaterialApp.router(
       title: '漏斗阅读',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.teal),
       routerConfig: router,
+      // builder 里包一层 MediaQuery，把"字体缩放"作用到全 App 所有文字上。
+      // 这样改一处、列表标题/正文/设置页一起变，和微信的字体设置一个效果。
+      // 字体页里拖动滑块时 feedSettingsProvider 会更新，这里自动重建、实时预览。
+      builder: (context, child) => MediaQuery(
+        // 用 TextScaler.linear 线性缩放：1.0 不变，>1 放大，<1 缩小
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(fontScale)),
+        child: child!,
+      ),
     );
   }
 }

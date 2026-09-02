@@ -31,6 +31,13 @@ class SettingsPage extends ConsumerWidget {
             onTap: () => context.push('/settings/blocked'),
           ),
           ListTile(
+            leading: const Icon(Icons.text_fields),
+            title: const Text('字体设置'),
+            subtitle: const Text('调整全局字号并实时预览'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/settings/font'),
+          ),
+          ListTile(
             leading: const Icon(Icons.backup),
             title: const Text('备份与恢复'),
             subtitle: const Text('导出 / 导入全部配置（含订阅源与屏蔽词）'),

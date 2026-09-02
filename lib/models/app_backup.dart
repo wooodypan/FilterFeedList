@@ -168,6 +168,7 @@ class AppBackup {
     'settings': {
       'aggregateMode': settings.aggregateMode,
       'showThumb': settings.showThumb,
+      'fontScale': settings.fontScale,
     },
     'dataSources': dataSources.map((e) => e.toJson()).toList(),
     'plugins': plugins.map((e) => e.toJson()).toList(),
@@ -217,6 +218,10 @@ class AppBackup {
             showThumb: settingsRaw['showThumb'] is bool
                 ? settingsRaw['showThumb'] as bool
                 : true,
+            // 字体倍数：老备份没有这个字段时用 1.0（标准字号），不报错
+            fontScale: settingsRaw['fontScale'] is num
+                ? (settingsRaw['fontScale'] as num).toDouble()
+                : 1.0,
           )
         : const FeedSettings();
 
