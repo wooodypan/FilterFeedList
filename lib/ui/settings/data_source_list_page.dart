@@ -118,6 +118,16 @@ class DataSourceListPage extends ConsumerWidget {
                 context.push('/settings/sources/rss-edit');
               },
             ),
+            // 方式：从 OPML 文件批量导入（兼容 Feedly / Inoreader 等阅读器导出）
+            ListTile(
+              leading: const Icon(Icons.file_upload_outlined),
+              title: const Text('从 OPML 导入'),
+              subtitle: const Text('选择 .opml 文件，批量添加订阅源'),
+              onTap: () {
+                Navigator.of(sheetCtx).pop();
+                context.push('/settings/sources/opml-import');
+              },
+            ),
             // 方式二：手动配置（原有的表单流程）
             ListTile(
               leading: const Icon(Icons.tune),

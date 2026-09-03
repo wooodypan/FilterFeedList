@@ -14,6 +14,7 @@ import 'ui/settings/blocked_keyword_page.dart';
 import 'ui/settings/data_source_edit_page.dart';
 import 'ui/settings/data_source_list_page.dart';
 import 'ui/settings/font_settings_page.dart';
+import 'ui/settings/opml_import_page.dart';
 import 'ui/settings/rss_recommend_config.dart';
 import 'ui/settings/rss_source_edit_page.dart';
 import 'ui/settings/settings_page.dart';
@@ -65,6 +66,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           return const RssSourceEditPage();
         },
+      ),
+      GoRoute(
+        path: '/settings/sources/opml-import',
+        builder: (context, state) => const OpmlImportPage(),
       ),
       GoRoute(
         path: '/settings/sources/rss-recommend',

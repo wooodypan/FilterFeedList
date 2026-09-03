@@ -119,6 +119,36 @@ class AppDatabase extends _$AppDatabase {
     return delete(dataSources).go();
   }
 
+  /// 批量插入多个数据源（OPML 导入用）。
+  ///
+  /// 新源统一排到所有现有 Tab 的最后一位（用现有最大序号递增），
+  /// 避免和已有源抢位置。id 相同则覆盖（insertOnConflictUpdate）。
+  /// 一次 batch 写完，比循环调用 [upsertDataSource] 少 N 次刷新、更快。
+  Future<void> insertDataSources(List<DataSourceConfig> configs) async {
+    if (configs.isEmpty) return;
+    // 取出现有最大序号，新源在它后面依次排开
+    final existing = await select(dataSources).get();
+    final maxOrder = existing.fold(
+      0,
+      (int m, r) => r.sortOrder > m ? r.sortOrder : m,
+    );
+    await batch((b) {
+      for (var i = 0; i < configs.length; i++) {
+        final c = configs[i];
+        b.insert(
+          dataSources,
+          DataSourcesCompanion.insert(
+            id: c.id,
+            name: c.name,
+            enabled: Value(c.enabled),
+            config: c,
+            sortOrder: Value(maxOrder + 1 + i),
+          ),
+        );
+      }
+    });
+  }
+
   // ===================== Tab 排序序号相关 DAO =====================
 
   /// 读出所有源（数据源 + 插件）的 Tab 排序序号，合并成 id -> 序号 的映射。

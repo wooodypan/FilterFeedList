@@ -7,11 +7,14 @@ import 'core_providers.dart';
 /// 数据源列表状态：管理所有数据源配置的加载与增删改。
 ///
 /// 用 AsyncValue 包裹，方便 UI 区分"加载中 / 成功 / 失败"三种状态。
-final dataSourcesProvider = StateNotifierProvider<DataSourceNotifier,
-    AsyncValue<List<DataSourceConfig>>>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  return DataSourceNotifier(db);
-});
+final dataSourcesProvider =
+    StateNotifierProvider<
+      DataSourceNotifier,
+      AsyncValue<List<DataSourceConfig>>
+    >((ref) {
+      final db = ref.watch(appDatabaseProvider);
+      return DataSourceNotifier(db);
+    });
 
 class DataSourceNotifier
     extends StateNotifier<AsyncValue<List<DataSourceConfig>>> {
@@ -43,6 +46,12 @@ class DataSourceNotifier
   /// 删除数据源
   Future<void> delete(String id) async {
     await _db.deleteDataSource(id);
+    await _load();
+  }
+
+  /// 批量新增数据源（OPML 导入用）：一次写入、一次刷新，避免 N 次重载。
+  Future<void> addMultiple(List<DataSourceConfig> configs) async {
+    await _db.insertDataSources(configs);
     await _load();
   }
 
