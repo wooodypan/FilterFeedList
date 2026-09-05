@@ -185,6 +185,7 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
       currentIndex: controller.index,
       onSelect: (index) => controller.animateTo(index),
       onReorder: _onReorder,
+      onManage: () => context.push('/settings/sources'),
     );
   }
 

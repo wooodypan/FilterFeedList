@@ -16,12 +16,17 @@ class AllSourcesSheet extends StatefulWidget {
   final ValueChanged<int> onSelect;
   final Future<void> Function(int oldIndex, int newIndex) onReorder;
 
+  /// 跳转到"数据源管理"界面的回调（由调用方提供，用父级 context 导航，
+  /// 这样弹层关闭后管理页能正常压在首页之上）。
+  final VoidCallback onManage;
+
   const AllSourcesSheet({
     super.key,
     required this.sources,
     required this.currentIndex,
     required this.onSelect,
     required this.onReorder,
+    required this.onManage,
   });
 
   /// 便捷调用：以 BottomSheet 形式弹出，占据大部分屏幕高度但可下滑收起。
@@ -31,6 +36,7 @@ class AllSourcesSheet extends StatefulWidget {
     required int currentIndex,
     required ValueChanged<int> onSelect,
     required Future<void> Function(int oldIndex, int newIndex) onReorder,
+    required VoidCallback onManage,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -41,6 +47,7 @@ class AllSourcesSheet extends StatefulWidget {
         currentIndex: currentIndex,
         onSelect: onSelect,
         onReorder: onReorder,
+        onManage: onManage,
       ),
     );
   }
@@ -98,6 +105,16 @@ class _AllSourcesSheetState extends State<AllSourcesSheet> {
                   ),
                   const Spacer(),
                   Text('长按拖动排序', style: Theme.of(context).textTheme.bodySmall),
+                  // 快捷入口：跳到"数据源管理"界面（增删 / 排序 / 装插件等都在那）。
+                  // 先由父级 context 压入管理页路由，再关掉本弹层。
+                  IconButton(
+                    icon: const Icon(Icons.tune),
+                    tooltip: '管理数据源',
+                    onPressed: () {
+                      widget.onManage();
+                      Navigator.of(context).pop();
+                    },
+                  ),
                 ],
               ),
             ),

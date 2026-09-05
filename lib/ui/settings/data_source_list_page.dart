@@ -585,11 +585,19 @@ class _PluginTile extends ConsumerWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
-      // 整行可点 = 打开编辑；也保留了明确的编辑/删除图标
+      // 整行可点 = 打开编辑；也保留了明确的更新/编辑/删除图标
       onTap: () => _showEditDialog(context, plugin),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 更新：用安装时记录的来源 URL 重新下载并覆盖（无来源地址则禁用）
+          IconButton(
+            icon: const Icon(Icons.system_update),
+            tooltip: '更新',
+            onPressed: plugin.sourceUrl.isEmpty
+                ? null
+                : () => _updatePlugin(context, ref),
+          ),
           IconButton(
             icon: const Icon(Icons.edit),
             tooltip: '编辑',
@@ -635,6 +643,104 @@ class _PluginTile extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  /// 根据插件记录的来源 URL 重新下载并覆盖更新。
+  ///
+  /// 下载前先校验远程插件的 id 与本地一致，避免把"来源地址变了"的脚本
+  /// 错装到当前插件上；用户确认后才覆盖写入（保留本地的启用状态与显示名）。
+  Future<void> _updatePlugin(BuildContext context, WidgetRef ref) async {
+    final url = plugin.sourceUrl;
+    if (url.isEmpty) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('该插件未记录来源地址，无法自动更新')));
+      return;
+    }
+
+    // 1) 重新下载远程脚本并解析清单
+    late final PluginDownloadResult remote;
+    try {
+      remote = await ref.read(pluginDownloaderProvider).fetch(url);
+    } catch (e) {
+      if (!context.mounted) return;
+      final msg = e is PluginDownloadException ? e.message : '更新失败：$e';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      return;
+    }
+
+    // 2) 安全校验：来源地址若已不是同一个插件（id 变了），拒绝覆盖
+    if (remote.manifest.id != plugin.id) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('更新失败：来源地址返回的插件 ID 不一致')));
+      return;
+    }
+
+    if (!context.mounted) return;
+    // 3) 弹确认框：展示新旧版本，用户点头才覆盖写入
+    final confirmed = await _confirmUpdate(
+      context,
+      remote.manifest.version ?? plugin.version,
+    );
+    if (!confirmed) return;
+
+    try {
+      // 用远程脚本 / 清单 / 版本覆盖，但保留本地的启用状态、显示名、深链开关，
+      // 避免"更新"把用户改过的设置也重置了。
+      final updated = plugin.copyWith(
+        scriptContent: remote.script,
+        manifest: remote.manifest,
+        version: remote.manifest.version ?? plugin.version,
+        sourceUrl: remote.sourceUrl,
+      );
+      await ref.read(installedPluginsProvider.notifier).update(updated);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('插件「${plugin.name}」已更新到 ${updated.version}')),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('更新失败：$e')));
+    }
+  }
+
+  /// 更新确认框：展示当前版本与最新版本，避免误覆盖。
+  Future<bool> _confirmUpdate(
+    BuildContext context,
+    String remoteVersion,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('更新插件'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('当前版本：${plugin.version}'),
+            Text('最新版本：$remoteVersion'),
+            const SizedBox(height: 8),
+            const Text('将用来源地址的最新脚本覆盖当前插件，是否继续？'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('更新'),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
   }
 }
 
