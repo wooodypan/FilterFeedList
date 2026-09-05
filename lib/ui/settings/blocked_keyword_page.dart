@@ -4,14 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/app_database.dart';
 import '../../providers/blocked_keyword_provider.dart';
 
-/// 屏蔽词管理页：添加 / 搜索 / 修改（改词 + 改时长）/ 删除屏蔽词。
+/// 屏蔽词管理页：搜索 / 添加 / 修改（改词 + 改时长）/ 删除屏蔽词。
 ///
 /// 每个屏蔽词可以设成：
-/// - 永久屏蔽（expiresAt 为 null）；
+/// - 永久屏蔽（expiresAt 为 null，默认）；
 /// - 屏蔽指定时间（如 7 天），到期自动失效（但行仍留在库里，可续期/恢复）。
 ///
-/// 右上角的搜索按钮可以切换成"搜索模式"：按关键词过滤本地已添加的屏蔽词
-/// （不区分大小写的包含匹配），再点一次（或点 ✕）退出搜索恢复完整列表。
+/// 顶部输入框两用：边打字边过滤下方已添加的屏蔽词（即搜即显）；
+/// 点「添加」（或回车）弹出对话框，选好「永久 / 指定天数」后入库。
 class BlockedKeywordPage extends ConsumerStatefulWidget {
   const BlockedKeywordPage({super.key});
 
@@ -147,6 +147,9 @@ class _BlockedKeywordPageState extends ConsumerState<BlockedKeywordPage> {
   }
 
   /// 打开"添加"对话框（把输入框内容带过去预填）。
+  ///
+  /// 对话框里可以选「永久 / 指定天数」，点保存才真正入库；
+  /// 添加成功后清空输入框（既准备好加下一个词，也让列表恢复完整）。
   void _openAddDialog(BuildContext context) {
     final text = _inputController.text.trim();
     if (text.isEmpty) return;
@@ -214,7 +217,8 @@ class _BlockedKeywordPageState extends ConsumerState<BlockedKeywordPage> {
 /// 添加 / 修改屏蔽词的通用对话框。
 ///
 /// 复用的好处：添加和修改的界面完全一致，只是"是否预填已有值"的区别。
-/// [initialWord] 预填词面；[initialExpiresAt] 预填到期时间（NULL=永久）；
+/// [isEdit] 决定标题文案；[initialWord] 预填词面；
+/// [initialExpiresAt] 预填到期时间（NULL=永久）；
 /// [onSave] 在用户点"保存"时回传最终词面与到期时间。
 class _BlockedKeywordDialog extends StatefulWidget {
   final bool isEdit;

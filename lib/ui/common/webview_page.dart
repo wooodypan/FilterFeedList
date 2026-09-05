@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -7,6 +9,11 @@ import 'package:webview_flutter/webview_flutter.dart';
 ///
 /// 把文章详情页里「加载网页 + 导航拦截 + 唤起第三方 App + 加载完成后注入脚本」
 /// 的逻辑抽取到这里，供「RSS 推荐订阅」等任何需要内嵌网页的场景复用。
+///
+/// 注意（macOS 26 / iOS 26）：只要导航决策最终是「拦截」（prevent/cancel），
+/// 控制台就会打印一段以 `WebKit::WebFramePolicyListenerProxy::ignore` 开头的
+/// 调用栈。这是 WebKit 自身的回归日志，不是本项目的崩溃
+/// （WebKit bug 303093 / rdar://165421759），App 不会闪退，忽略即可。
 ///
 /// 典型用法（见 app.dart 的 /settings/sources/rss-recommend 路由）：
 /// ```dart
@@ -53,6 +60,16 @@ class CommonWebViewPage extends StatefulWidget {
   @override
   State<CommonWebViewPage> createState() => _CommonWebViewPageState();
 }
+
+/// WebView 自己就能加载、不该被当成「第三方 App 链接」的内部协议。
+///
+/// 踩过的坑：很多网页里的 iframe / 懒加载容器用的就是 `about:blank`、
+/// `about:srcdoc`，如果不放行，就会莫名其妙弹出「打开第三方 App？」。
+const Set<String> _kInternalSchemes = {
+  'about', // about:blank / about:srcdoc，iframe 的初始空白页
+  'blob', // 前端生成的临时文件地址
+  'data', // 内联的 data: 资源
+};
 
 class _CommonWebViewPageState extends State<CommonWebViewPage> {
   // WebView 控制器：负责加载 URL、控制 JS 开关、注册通道等
@@ -105,35 +122,55 @@ class _CommonWebViewPageState extends State<CommonWebViewPage> {
   Future<NavigationDecision> _onNavigationRequest(
     NavigationRequest request,
   ) async {
-    final uri = Uri.tryParse(request.url);
-    if (uri == null) return NavigationDecision.navigate;
+    try {
+      final uri = Uri.tryParse(request.url);
+      if (uri == null) return NavigationDecision.navigate;
 
-    final scheme = uri.scheme.toLowerCase();
-    final isWebScheme = scheme == 'http' || scheme == 'https';
+      // 子框架（iframe）里的跳转一律不拦截：一是用户并没有主动点，弹窗很突兀；
+      // 二是 iframe 数量多，逐个弹窗会把页面彻底拖死。
+      if (!request.isMainFrame) return NavigationDecision.navigate;
 
-    if (isWebScheme) {
-      // 只有命中 Universal Link 白名单的 https 链接，才走「唤起 App」流程；
-      // 普通网页链接照常加载。
-      if (!widget.universalLinkHosts.contains(uri.host.toLowerCase())) {
+      final scheme = uri.scheme.toLowerCase();
+
+      // WebView 自己能加载的内部协议，直接放行
+      if (_kInternalSchemes.contains(scheme)) {
         return NavigationDecision.navigate;
       }
-      // 命中白名单：问用户，同意后唤起（prevent），拒绝则继续在 WebView 打开
-      final opened = await _askUserAndOpenApp(request.url);
-      return opened ? NavigationDecision.prevent : NavigationDecision.navigate;
-    }
 
-    // 自定义协议（weixin://、taobao://、myapp:// 等）一律视为
-    // 唤起第三方 App 的 deeplink：WebView 本身无法加载这类协议，
-    // 所以无论用户是否同意都拦截掉（同意则唤起外部 App，拒绝则什么都不做）。
-    await _askUserAndOpenApp(request.url);
-    return NavigationDecision.prevent;
+      // http(s) 链接：只有命中 Universal Link 白名单的才考虑去唤起 App，
+      // 普通网页链接照常在 WebView 里打开。
+      if (scheme == 'http' || scheme == 'https') {
+        if (!widget.universalLinkHosts.contains(uri.host.toLowerCase())) {
+          return NavigationDecision.navigate;
+        }
+      }
+
+      // 走到这里说明这是要唤起第三方 App 的 deeplink（自定义协议，
+      // 或白名单里的 Universal Link）。
+      //
+      // 关键点：**这里绝对不能 await**。
+      // 1) 这个回调在原生侧是 WKWebView 的「策略决策」，await 期间整个
+      //    页面会被挂住，用户看到的就是网页卡死；
+      // 2) 如果在等待期间页面被销毁 / 又来了新导航，原生侧的回调可能失效，
+      //    插件兜底会执行 cancel 决策，macOS 26 上还会打印一段 WebKit 内部
+      //    调用栈（WebKit 的已知回归 bug，见下方说明）。
+      // 所以：先把决策「预防性地拦下」立刻还给 WebKit，弹窗放到异步任务里做。
+      unawaited(_askUserAndOpenApp(request.url));
+      return NavigationDecision.prevent;
+    } catch (e) {
+      // Dart 回调一旦抛异常，插件会把这次导航判成 cancel，页面会白屏。
+      // 兜底放行，保证网页至少能正常打开。
+      debugPrint('[WebView] 导航拦截异常，放行：$e');
+      return NavigationDecision.navigate;
+    }
   }
 
-  /// 弹窗询问用户是否打开第三方 App；同意后用 url_launcher 唤起外部应用。
-  /// 返回 true 表示已尝试唤起，false 表示用户取消或唤起失败。
-  Future<bool> _askUserAndOpenApp(String url) async {
+  /// 询问用户是否打开第三方 App；同意后用 url_launcher 唤起外部应用。
+  ///
+  /// 由 [unawaited] 调用：不阻塞 WebView 的导航决策。
+  Future<void> _askUserAndOpenApp(String url) async {
     // 组件可能已销毁（如导航过程中用户返回），先判断再弹窗
-    if (!mounted) return false;
+    if (!mounted) return;
 
     final confirm = await showDialog<bool>(
       context: context,
@@ -152,13 +189,22 @@ class _CommonWebViewPageState extends State<CommonWebViewPage> {
         ],
       ),
     );
-    if (confirm != true) return false;
+
+    if (confirm != true) {
+      // 用户取消。如果是 http(s) 链接（白名单里的 Universal Link），
+      // 因为我们前面已经 prevent 了，这里要主动让它回到 WebView 里继续加载；
+      // 自定义协议本来 WebView 也加载不了，什么都不做即可。
+      final uri = Uri.tryParse(url);
+      if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+        _controller.loadRequest(uri);
+      }
+      return;
+    }
 
     try {
       // externalApplication：交给系统去匹配并打开能处理该链接的 App
       // （自定义协议由对应 App 接收；Universal Link 由 iOS 路由到对应 App）
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      return true;
     } catch (e) {
       // 没有安装能处理该链接的 App 时会抛异常，提示用户即可
       if (mounted) {
@@ -166,7 +212,6 @@ class _CommonWebViewPageState extends State<CommonWebViewPage> {
           context,
         ).showSnackBar(SnackBar(content: Text('无法打开该应用，可能未安装：$url')));
       }
-      return false;
     }
   }
 

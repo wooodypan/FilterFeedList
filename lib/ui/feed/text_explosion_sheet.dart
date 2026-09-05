@@ -107,6 +107,16 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
   /// 不再有单独的「编辑」状态和「将屏蔽」预览行。
   final TextEditingController _inputController = TextEditingController();
 
+  /// 添加屏蔽词时选的时长（天）；0 = 永久（默认）。
+  /// 不碰下拉框就是永久屏蔽，和屏蔽词管理页的语义保持一致。
+  int _selectedDays = 0;
+
+  /// 时长下拉框的可选项：0 表示永久，其余是快捷天数
+  static const List<int> _durationChoices = [0, 1, 7, 30, 90];
+
+  /// 把天数选项翻译成下拉框里显示的文案
+  String _durationLabel(int days) => days == 0 ? '永久' : '$days 天';
+
   @override
   void initState() {
     super.initState();
@@ -253,7 +263,14 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
   Future<void> _addFromInput() async {
     final w = _inputController.text.trim();
     if (w.isEmpty) return;
-    await ref.read(blockedKeywordsProvider.notifier).add(w);
+    // 按当前选中的时长计算到期时间：0 = 永久（expiresAt 存 null），
+    // 指定天数则从现在起往后推 N 天，到期后该词自动失效。
+    final expiresAt = _selectedDays == 0
+        ? null
+        : DateTime.now().add(Duration(days: _selectedDays));
+    await ref
+        .read(blockedKeywordsProvider.notifier)
+        .add(w, expiresAt: expiresAt);
     widget.onAdded(1, w);
   }
 
@@ -292,8 +309,7 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
             Text('添加到屏蔽词语清单', style: theme.textTheme.titleMedium),
             const SizedBox(height: 2),
             Text(
-              '单击词块逐个勾选，或按住滑动连选一段；'
-              '选中的词会拼成短语填入下方输入框，可直接修改（如补空格）',
+              '单击或滑动连选后会自动填入下方输入框，可在输入框再次修改（如补空格）',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: Colors.grey[600],
               ),
@@ -349,7 +365,8 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
             ),
             const SizedBox(height: 4),
 
-            // 选择状态行：左边提示选了几个词，右边「清空」一键重来。
+            // 选择状态行：左边提示选了几个词；中间是「屏蔽时长」下拉框
+            // （默认永久，可改成指定天数，到期自动失效）；右边「清空」一键重来。
             // 不再显示「将屏蔽：XXX」预览——短语直接在下面的输入框里看。
             Row(
               children: [
@@ -360,6 +377,35 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
                   ),
                 ),
                 const Spacer(),
+                Text(
+                  '屏蔽时长',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                DropdownButton<int>(
+                  value: _selectedDays,
+                  // 去掉下拉框默认的下划线，让它更像一个「选项」而不是输入控件
+                  underline: const SizedBox.shrink(),
+                  isDense: true,
+                  style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 12,
+                    fontWeight: FontWeight.normal,
+                  ),
+                  items: [
+                    for (final d in _durationChoices)
+                      DropdownMenuItem(
+                        value: d,
+                        child: Text(_durationLabel(d)),
+                      ),
+                  ],
+                  onChanged: (v) {
+                    if (v != null) setState(() => _selectedDays = v);
+                  },
+                ),
+                const SizedBox(width: 8),
                 TextButton(
                   onPressed: _selected.isEmpty ? null : _clearSelection,
                   child: const Text('清空'),
