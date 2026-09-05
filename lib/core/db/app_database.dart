@@ -445,7 +445,7 @@ class AppDatabase extends _$AppDatabase {
       id: 'hn_demo',
       name: 'Hacker News (示例)',
       apiUrl:
-          'https://hn.algolia.com/api/v1/search?tags=story&page={page}&hitsPerPage={pageSize}',
+          'https://hn.algolia.com/api/v1/search_by_date?tags=story&page={page}&hitsPerPage={pageSize}',
       method: 'GET',
       fieldMapping: FieldMapping(
         listPath: 'hits',

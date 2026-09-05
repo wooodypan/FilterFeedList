@@ -73,6 +73,7 @@ dependencies:
   # ===== WebDAV 备份同步：第三方开源库（MIT，基于 dio，复用本项目已有的 dio 5.x）=====
   # 用于把配置备份上传到 / 从 WebDAV 服务器下载（坚果云、Nextcloud、群晖 Drive 等）。
   webdav_client: ^1.2.2
+  flutter_dotenv: ^6.0.1
 
 dev_dependencies:
   flutter_test:
@@ -97,3 +98,6 @@ flutter:
   # ===== 资源：中文分词词典（供 dart_jieba 初始化时从 asset bundle 复制到可写目录）=====
   assets:
     - assets/dict.dgz
+    # 翻译接口密钥等本地敏感配置（文件本身已被 .gitignore 排除，不会入库；
+    # 缺失时由 setup.sh 从 .env.production.example 复制生成）
+    - .env.production

@@ -16,3 +16,10 @@ flutter pub get
 
 echo "==> 复制分词词典（dart_jieba -> assets/dict.dgz）"
 dart run tools/fetch_dict.dart
+
+# 准备 .env.production：如果不存在，就从模板复制一份（里面是占位 key，可后补真实值）。
+# 真实密钥文件已被 .gitignore 排除，不会误提交。
+if [ ! -f .env.production ]; then
+  cp .env.production.example .env.production
+  echo "已生成 .env.production（如需自定义密钥，请编辑该文件）"
+fi

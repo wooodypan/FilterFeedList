@@ -8,6 +8,7 @@ import '../models/data_source_config.dart';
 import '../models/feed_article.dart';
 import 'generic_feed_parser.dart';
 import 'keyword_filter_engine.dart';
+import 'translator_service.dart';
 
 /// 信息流仓库：把"请求 -> 解析 -> 过滤"三步串起来，对外只给干净的文章列表。
 ///
@@ -16,8 +17,9 @@ import 'keyword_filter_engine.dart';
 class FeedRepository {
   final Dio _dio;
   final AppDatabase _db;
+  final TranslatorService _translator;
 
-  FeedRepository(this._dio, this._db);
+  FeedRepository(this._dio, this._db, this._translator);
 
   /// 拉取某个数据源某一页的信息流，并完成屏蔽词过滤。
   ///
@@ -61,9 +63,9 @@ class FeedRepository {
     }
 
     // 4) 通用解析
-    List<FeedArticle> articles;
+    List<FeedArticle> parsed;
     try {
-      articles = GenericFeedParser.parse(json, config);
+      parsed = GenericFeedParser.parse(json, config);
     } on FeedParseException {
       // 字段映射错误原样往上抛，UI 提示"该数据源配置有误"
       rethrow;
@@ -73,7 +75,78 @@ class FeedRepository {
     //    （只取未过期的词，过期的会自动失效；过滤放在 Repository 而非 UI，
     //    保证分页/去重逻辑都绕不过过滤）
     final keywords = await _db.getActiveBlockedKeywords();
-    return KeywordFilterEngine(keywords).filter(articles);
+    var articles = KeywordFilterEngine(keywords).filter(parsed);
+
+    // 6) 翻译：仅当 summaryPath 是翻译标记（如 title.tttttranslate）时触发。
+    //    规则：标记里的字段名是要"翻译的源"（如 title），译文写回 summaryPath 对应的
+    //    summary 字段——标题保留原文，第二行摘要显示译文。
+    //    先过滤再做翻译，避免把要被屏蔽的标题也送去翻译，省一次请求。
+    final marker = TranslatorService.parseMarker(
+      config.fieldMapping?.summaryPath,
+    );
+    if (marker != null && articles.isNotEmpty) {
+      articles = await _translateField(
+        articles,
+        sourceField: marker.field,
+        targetField: 'summary',
+        from: marker.from,
+        to: marker.to,
+      );
+    }
+
+    return articles;
+  }
+
+  /// 批量翻译：把 sourceField 的原文翻译后写回 targetField。
+  ///
+  /// 收集 sourceField 原文 → 交给 [TranslatorService] 一次性翻完 → 按原顺序写回 targetField。
+  /// 例如 summaryPath=title.tttttranslate 时：sourceField=title、targetField=summary，
+  /// 即"标题保留原文，摘要显示译文"。
+  Future<List<FeedArticle>> _translateField(
+    List<FeedArticle> articles, {
+    required String sourceField,
+    required String targetField,
+    required String from,
+    required String to,
+  }) async {
+    final originals = articles.map((a) => _readField(a, sourceField)).toList();
+    final translated = await _translator.translate(
+      originals,
+      from: from,
+      to: to,
+    );
+    return [
+      for (var i = 0; i < articles.length; i++)
+        _writeField(articles[i], targetField, translated[i]),
+    ];
+  }
+
+  /// 从文章里读出要翻译的字段（标记里写的 field 对应到 FeedArticle 的属性）。
+  static String _readField(FeedArticle a, String field) {
+    switch (field) {
+      case 'title':
+        return a.title;
+      case 'summary':
+        return a.summary ?? '';
+      case 'author':
+        return a.author ?? '';
+      default:
+        return '';
+    }
+  }
+
+  /// 把译文写回文章的对应字段（返回新对象，不改原对象）。
+  static FeedArticle _writeField(FeedArticle a, String field, String value) {
+    switch (field) {
+      case 'title':
+        return a.copyWith(title: value);
+      case 'summary':
+        return a.copyWith(summary: value);
+      case 'author':
+        return a.copyWith(author: value);
+      default:
+        return a;
+    }
   }
 }
 

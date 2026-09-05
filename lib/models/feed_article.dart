@@ -59,6 +59,35 @@ class FeedArticle {
   String toString() =>
       'FeedArticle(id: $id, title: $title, sourceId: $sourceId)';
 
+  /// 生成一个字段被替换后的副本（翻译标题等场景用）。
+  ///
+  /// 只传需要改的字段，其余沿用原值。
+  FeedArticle copyWith({
+    String? id,
+    String? title,
+    String? thumbUrl,
+    String? summary,
+    String? author,
+    String? publishTime,
+    String? contentHtml,
+    String? detailUrl,
+    String? appDeepLink,
+    String? sourceId,
+  }) {
+    return FeedArticle(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      thumbUrl: thumbUrl ?? this.thumbUrl,
+      summary: summary ?? this.summary,
+      author: author ?? this.author,
+      publishTime: publishTime ?? this.publishTime,
+      contentHtml: contentHtml ?? this.contentHtml,
+      detailUrl: detailUrl ?? this.detailUrl,
+      appDeepLink: appDeepLink ?? this.appDeepLink,
+      sourceId: sourceId ?? this.sourceId,
+    );
+  }
+
   /// 兜底 id：用"标题 + 缩略图"算 md5，保证同一条内容 id 稳定。
   ///
   /// 用在两种场景：

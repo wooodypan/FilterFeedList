@@ -10,6 +10,7 @@ import '../plugin/plugin_feed_repository.dart';
 import '../plugin/plugin_repository.dart';
 import '../services/feed_repository.dart';
 import '../services/rss_feed_repository.dart';
+import '../services/translator_service.dart';
 
 /// 全局数据库实例。
 /// 注意：main.dart 里会用 overrideWithValue 把它替换成"已初始化并完成种子数据"的同一个实例，
@@ -19,10 +20,22 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
 /// 全局 Dio 实例（统一超时/日志）。
 final dioProvider = Provider<Dio>((ref) => DioClient.create());
 
-/// 信息流仓库：组合 dio + 数据库（JSONPath 声明式数据源用）。
+/// 标题批量翻译服务（summaryPath 写成 title.tttttranslate 等标记时启用）。
+/// 单独挂载本机 HTTP 代理（defaultProxyUrl），只影响翻译请求，不波及 RSS / 插件下载。
+final translatorServiceProvider = Provider<TranslatorService>(
+  (ref) => TranslatorService(
+    ref.watch(dioProvider),
+    // proxyUrl: TranslatorService.defaultProxyUrl,
+  ),
+);
+
+/// 信息流仓库：组合 dio + 数据库 + 翻译服务（JSONPath 声明式数据源用）。
 final feedRepositoryProvider = Provider<FeedRepository>(
-  (ref) =>
-      FeedRepository(ref.watch(dioProvider), ref.watch(appDatabaseProvider)),
+  (ref) => FeedRepository(
+    ref.watch(dioProvider),
+    ref.watch(appDatabaseProvider),
+    ref.watch(translatorServiceProvider),
+  ),
 );
 
 /// RSS 订阅源仓库：组合 dio + 数据库（RSS/Atom 订阅数据源用）。
