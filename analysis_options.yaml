@@ -17,7 +17,9 @@ analyzer:
     - macos/**
     - linux/**
 include: package:flutter_lints/flutter.yaml
-
+# 把行宽放宽到 100 或 120 analysis_options.yaml（Dart 3.7+ 支持）
+# formatter:
+#   page_width: 100
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`

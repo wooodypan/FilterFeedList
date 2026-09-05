@@ -104,7 +104,7 @@ class _AllSourcesSheetState extends State<AllSourcesSheet> {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                   const Spacer(),
-                  Text('长按拖动排序', style: Theme.of(context).textTheme.bodySmall),
+                  Text('管理数据源', style: Theme.of(context).textTheme.bodySmall),
                   // 快捷入口：跳到"数据源管理"界面（增删 / 排序 / 装插件等都在那）。
                   // 先由父级 context 压入管理页路由，再关掉本弹层。
                   IconButton(
@@ -174,9 +174,11 @@ class _ReorderableSourceGrid extends StatelessWidget {
       padding: const EdgeInsets.only(top: 4, bottom: 8),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 4,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 0.85,
+        // 名字按钮是扁的（高约 36），不再是"圆形头像+名字"的高格子，
+        // 宽高比调大让格子刚好包住按钮
+        mainAxisSpacing: 10,
+        crossAxisSpacing: 10,
+        childAspectRatio: 2.2,
       ),
       itemCount: sources.length,
       itemBuilder: (context, index) {
@@ -194,7 +196,8 @@ class _ReorderableSourceGrid extends StatelessWidget {
               data: index,
               feedback: Material(
                 color: Colors.transparent,
-                child: SizedBox(width: 72, height: 84, child: chip),
+                // 拖拽浮影尺寸跟着按钮形状走（扁按钮）
+                child: SizedBox(width: 72, height: 36, child: chip),
               ),
               childWhenDragging: Opacity(opacity: 0.3, child: chip),
               child: AnimatedScale(
@@ -210,6 +213,8 @@ class _ReorderableSourceGrid extends StatelessWidget {
   }
 }
 
+/// 单个源按钮：直接显示源名称，淡灰色描边 + 白底；
+/// 当前选中的源用主题色描边 + 浅色底，一眼能看出"你现在在这个 Tab"。
 class _SourceChip extends StatelessWidget {
   final FeedSource source;
   final bool isCurrent;
@@ -219,45 +224,35 @@ class _SourceChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isCurrent
-                ? theme.colorScheme.primaryContainer
-                : theme.colorScheme.surfaceContainerHighest,
-            border: isCurrent
-                ? Border.all(color: theme.colorScheme.primary, width: 2)
-                : null,
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            // 用源名称首字作为兜底展示，若后续 FeedSource 增加 icon 字段，
-            // 这里替换成 Image / Icon 即可，不影响外层拖拽和布局逻辑。
-            source.name.isNotEmpty ? source.name.characters.first : '?',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: isCurrent
-                  ? theme.colorScheme.onPrimaryContainer
-                  : theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
+    return Container(
+      alignment: Alignment.center,
+      // 内边距留一点，避免长名称贴边；超出宽度用省略号截断
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        // 普通项白底；选中项给一层浅色底，配合描边区分
+        color: isCurrent ? theme.colorScheme.primaryContainer : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          // 普通项：淡灰色边框；选中项：主题色边框
+          color: isCurrent
+              ? theme.colorScheme.primary
+              : const Color(0xFFE0E0E0),
+          width: 1,
         ),
-        const SizedBox(height: 6),
-        Text(
-          source.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
-            color: isCurrent ? theme.colorScheme.primary : null,
-          ),
+      ),
+      child: Text(
+        source.name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        style: theme.textTheme.bodySmall?.copyWith(
+          fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+          // 普通项正文色，选中项主题色，和描边呼应
+          color: isCurrent
+              ? theme.colorScheme.primary
+              : theme.colorScheme.onSurface,
         ),
-      ],
+      ),
     );
   }
 }
