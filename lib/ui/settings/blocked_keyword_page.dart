@@ -4,43 +4,79 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/app_database.dart';
 import '../../providers/blocked_keyword_provider.dart';
 
-/// 屏蔽词管理页：添加 / 修改（改词 + 改时长）/ 删除屏蔽词。
+/// 屏蔽词管理页：添加 / 搜索 / 修改（改词 + 改时长）/ 删除屏蔽词。
 ///
 /// 每个屏蔽词可以设成：
 /// - 永久屏蔽（expiresAt 为 null）；
 /// - 屏蔽指定时间（如 7 天），到期自动失效（但行仍留在库里，可续期/恢复）。
-class BlockedKeywordPage extends ConsumerWidget {
+///
+/// 右上角的搜索按钮可以切换成"搜索模式"：按关键词过滤本地已添加的屏蔽词
+/// （不区分大小写的包含匹配），再点一次（或点 ✕）退出搜索恢复完整列表。
+class BlockedKeywordPage extends ConsumerStatefulWidget {
   const BlockedKeywordPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BlockedKeywordPage> createState() => _BlockedKeywordPageState();
+}
+
+class _BlockedKeywordPageState extends ConsumerState<BlockedKeywordPage> {
+  /// 唯一的输入框控制器：搜索和添加共用。
+  /// 放成成员变量而不是在 build 里 new：build 每次重建都会生成新控制器，
+  /// 用户刚敲的字会跟着丢失（老代码就有这个隐患，顺手修正）。
+  final _inputController = TextEditingController();
+
+  /// 当前搜索词：随输入实时变化，用来过滤下方列表。
+  String _query = '';
+
+  @override
+  void dispose() {
+    _inputController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(blockedKeywordsProvider);
-    final controller = TextEditingController();
 
     return Scaffold(
       appBar: AppBar(title: const Text('屏蔽词管理')),
       body: Column(
         children: [
-          // 顶部输入区：输入词后点"添加"会弹出对话框，让你选"永久/指定天数"
+          // 顶部输入区：一个框两用——
+          // ① 边打字边过滤下面已添加的屏蔽词（即搜即显）；
+          // ② 点"添加"（或回车）把框里的词作为新屏蔽词加进去。
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: controller,
-                    decoration: const InputDecoration(
-                      labelText: '输入要屏蔽的词',
-                      hintText: '例如：广告 / 带货 / 标题党',
-                      border: OutlineInputBorder(),
+                    controller: _inputController,
+                    decoration: InputDecoration(
+                      labelText: '搜索 / 添加屏蔽词',
+                      hintText: '输入即过滤下方列表',
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.search),
+                      // 有内容时显示一键清空（清空后列表恢复完整）
+                      suffixIcon: _query.isEmpty
+                          ? null
+                          : IconButton(
+                              icon: const Icon(Icons.close, size: 20),
+                              tooltip: '清空',
+                              onPressed: () {
+                                _inputController.clear();
+                                setState(() => _query = '');
+                              },
+                            ),
                     ),
-                    onSubmitted: (v) =>
-                        _openAddDialog(context, ref, controller),
+                    // 每敲一个字都刷新过滤结果
+                    onChanged: (v) => setState(() => _query = v),
+                    onSubmitted: (v) => _openAddDialog(context),
                   ),
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: () => _openAddDialog(context, ref, controller),
+                  onPressed: () => _openAddDialog(context),
                   child: const Text('添加'),
                 ),
               ],
@@ -51,13 +87,23 @@ class BlockedKeywordPage extends ConsumerWidget {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('加载失败：$e')),
               data: (rows) {
-                if (rows.isEmpty) {
-                  return const Center(child: Text('还没有屏蔽词'));
+                // 搜索过滤：不区分大小写的"包含"匹配，空搜索词显示全部
+                final q = _query.trim().toLowerCase();
+                final filtered = q.isEmpty
+                    ? rows
+                    : rows
+                          .where((r) => r.word.toLowerCase().contains(q))
+                          .toList();
+                if (filtered.isEmpty) {
+                  // 区分"真的一个都没有"和"搜不出来"
+                  return Center(
+                    child: Text(rows.isEmpty ? '还没有屏蔽词' : '没有匹配「$_query」的屏蔽词'),
+                  );
                 }
                 return ListView.builder(
-                  itemCount: rows.length,
+                  itemCount: filtered.length,
                   itemBuilder: (context, i) {
-                    final row = rows[i];
+                    final row = filtered[i];
                     final expired = _isExpired(row);
                     return ListTile(
                       leading: Icon(
@@ -75,7 +121,7 @@ class BlockedKeywordPage extends ConsumerWidget {
                           IconButton(
                             icon: const Icon(Icons.edit_outlined),
                             tooltip: '修改',
-                            onPressed: () => _openEditDialog(context, ref, row),
+                            onPressed: () => _openEditDialog(context, row),
                           ),
                           // 删除
                           IconButton(
@@ -88,7 +134,7 @@ class BlockedKeywordPage extends ConsumerWidget {
                         ],
                       ),
                       // 点整行也能进入修改
-                      onTap: () => _openEditDialog(context, ref, row),
+                      onTap: () => _openEditDialog(context, row),
                     );
                   },
                 );
@@ -101,12 +147,8 @@ class BlockedKeywordPage extends ConsumerWidget {
   }
 
   /// 打开"添加"对话框（把输入框内容带过去预填）。
-  void _openAddDialog(
-    BuildContext context,
-    WidgetRef ref,
-    TextEditingController controller,
-  ) {
-    final text = controller.text.trim();
+  void _openAddDialog(BuildContext context) {
+    final text = _inputController.text.trim();
     if (text.isEmpty) return;
     showDialog<void>(
       context: context,
@@ -117,18 +159,16 @@ class BlockedKeywordPage extends ConsumerWidget {
           ref
               .read(blockedKeywordsProvider.notifier)
               .add(word, expiresAt: expiresAt);
-          controller.clear();
+          // 添加成功后清空输入框：既准备好加下一个词，也让列表恢复完整
+          _inputController.clear();
+          setState(() => _query = '');
         },
       ),
     );
   }
 
   /// 打开"修改"对话框（把当前行的词面 / 到期时间带过去）。
-  void _openEditDialog(
-    BuildContext context,
-    WidgetRef ref,
-    BlockedKeyword row,
-  ) {
+  void _openEditDialog(BuildContext context, BlockedKeyword row) {
     showDialog<void>(
       context: context,
       builder: (_) => _BlockedKeywordDialog(
