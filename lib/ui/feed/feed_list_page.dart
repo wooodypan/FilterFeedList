@@ -246,6 +246,12 @@ class _FeedListView extends ConsumerStatefulWidget {
 class _FeedListViewState extends ConsumerState<_FeedListView> {
   final _scroll = ScrollController();
 
+  /// 是否显示「回到顶部」按钮：滑过一定距离后出现，接近顶部时消失。
+  bool _showBackToTop = false;
+
+  /// 滚动超过这个距离（逻辑像素）就显示「回到顶部」按钮
+  static const double _backToTopThreshold = 800;
+
   @override
   void initState() {
     super.initState();
@@ -254,9 +260,23 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
   }
 
   void _onScroll() {
+    // 滑得够远就亮出「回到顶部」按钮；状态没变就不 setState，避免每帧重建
+    final far = _scroll.position.pixels > _backToTopThreshold;
+    if (far != _showBackToTop) {
+      setState(() => _showBackToTop = far);
+    }
     if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 200) {
       widget.onLoadMore();
     }
+  }
+
+  /// 平滑滚回顶部（300ms 动画，比直接跳上去体验好）
+  void _backToTop() {
+    _scroll.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -309,43 +329,74 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
       return const Center(child: Text('暂无内容（可能都被屏蔽词过滤了）'));
     }
 
-    return RefreshIndicator(
-      onRefresh: widget.onRefresh,
-      // 用 separated 而不是 builder：可以在每两行之间插入一条 0.5px 的分割线，
-      // 这是"无卡片、纯白扁平列表"样式的关键（分割线不属于任何一行）。
-      child: ListView.separated(
-        controller: _scroll,
-        itemCount: state.articles.length + 1, // 多一个底部"加载更多"条目
-        // 行之间的 0.5px 分割线：高度 0.5 逻辑像素，在高清屏上就是一条细线
-        separatorBuilder: (context, index) => Container(
-          height: 0.5,
-          color: const Color(0xFFE5E5E5), // 浅灰分割线，白色行底上刚好可见
-        ),
-        itemBuilder: (context, index) {
-          // 最后一条：加载更多指示器
-          if (index == state.articles.length) {
-            if (!state.hasMore) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: Text('— 没有更多了 —')),
-              );
-            }
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child: Center(child: CircularProgressIndicator()),
-            );
-          }
+    return Stack(
+      children: [
+        RefreshIndicator(
+          onRefresh: widget.onRefresh,
+          // 用 separated 而不是 builder：可以在每两行之间插入一条 0.5px 的分割线，
+          // 这是"无卡片、纯白扁平列表"样式的关键（分割线不属于任何一行）。
+          child: ListView.separated(
+            controller: _scroll,
+            itemCount: state.articles.length + 1, // 多一个底部"加载更多"条目
+            // 行之间的 0.5px 分割线：高度 0.5 逻辑像素，在高清屏上就是一条细线
+            separatorBuilder: (context, index) => Container(
+              height: 0.5,
+              color: const Color(0xFFE5E5E5), // 浅灰分割线，白色行底上刚好可见
+            ),
+            itemBuilder: (context, index) {
+              // 最后一条：加载更多指示器
+              if (index == state.articles.length) {
+                if (!state.hasMore) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: Text('— 没有更多了 —')),
+                  );
+                }
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
 
-          final article = state.articles[index];
-          return FeedItemCard(
-            article: article,
-            showThumb: widget.showThumb,
-            // 看一眼这篇有没有被标记成已读，决定标题要不要变灰
-            isRead: readIds.contains(article.id),
-            onTap: () => _openDetail(context, article),
-          );
-        },
-      ),
+              final article = state.articles[index];
+              return FeedItemCard(
+                article: article,
+                showThumb: widget.showThumb,
+                // 看一眼这篇有没有被标记成已读，决定标题要不要变灰
+                isRead: readIds.contains(article.id),
+                onTap: () => _openDetail(context, article),
+              );
+            },
+          ),
+        ),
+
+        // 「回到顶部」悬浮按钮：滑过 800px 才出现，淡入淡出过渡。
+        // IgnorePointer 在隐藏时把按钮整个"挖空"，避免透明状态下还能误点。
+        Positioned(
+          right: 16,
+          bottom: 24,
+          child: AnimatedOpacity(
+            opacity: _showBackToTop ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 200),
+            child: IgnorePointer(
+              ignoring: !_showBackToTop,
+              child: Material(
+                // 白底 + 淡灰描边的圆形按钮，和列表的扁平白风格一致（不用阴影）
+                color: Colors.white,
+                shape: const CircleBorder(
+                  side: BorderSide(color: Color(0xFFE0E0E0)),
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_upward),
+                  tooltip: '回到顶部',
+                  onPressed: _backToTop,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
