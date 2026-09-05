@@ -75,7 +75,11 @@ class AppDatabase extends _$AppDatabase {
 
   /// 查出所有数据源（按名称排序）
   Future<List<DataSourceConfig>> getAllDataSources() async {
-    final rows = await select(dataSources).get();
+    // 按 sortOrder 升序返回，这样上层（数据源管理列表、信息流 Tab）拿到的是
+    // 用户排好的顺序，而不是数据库的插入顺序。
+    final rows = await (select(
+      dataSources,
+    )..orderBy([(t) => OrderingTerm.asc(t.sortOrder)])).get();
     return rows.map((r) => r.config).toList();
   }
 
@@ -330,9 +334,11 @@ class AppDatabase extends _$AppDatabase {
 
   /// 查出所有已安装插件（按安装时间倒序）。
   Future<List<InstalledPlugin>> getAllInstalledPlugins() async {
+    // 同样按 sortOrder 升序：插件和数据源共用一套全局编号，
+    // 这样管理列表里两类源能按用户排的顺序交错展示。
     final rows = await (select(
       installedPlugins,
-    )..orderBy([(t) => OrderingTerm.desc(t.installedAt)])).get();
+    )..orderBy([(t) => OrderingTerm.asc(t.sortOrder)])).get();
     return rows.map(rowToInstalledPlugin).toList();
   }
 

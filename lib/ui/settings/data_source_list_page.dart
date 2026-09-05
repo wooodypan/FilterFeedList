@@ -15,25 +15,133 @@ import '../../providers/plugin_provider.dart';
 /// 右下角加号支持两种添加方式：
 /// 1. 手动配置：跳转表单页填 API 地址 + 字段映射（适合简单的公开 API）
 /// 2. 安装插件：输入插件脚本 URL，下载并校验后装到本地（适合需要签名/加密的 API）
-class DataSourceListPage extends ConsumerWidget {
+class DataSourceListPage extends ConsumerStatefulWidget {
   const DataSourceListPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DataSourceListPage> createState() => _DataSourceListPageState();
+}
+
+class _DataSourceListPageState extends ConsumerState<DataSourceListPage> {
+  // 是否处于"排序模式"：开启后整个列表变成可拖拽重排，关掉恢复普通浏览。
+  bool _sortMode = false;
+  // 排序模式下的展示顺序（数据源 + 插件合并成一个列表，按 sortOrder 排好）。
+  // 普通模式下用不到，只在进入排序模式时从数据库读出来填充。
+  List<_OrderedItem> _ordered = const [];
+
+  @override
+  Widget build(BuildContext context) {
     // 同时监听两类"信息源"：JSONPath 数据源 + 已安装插件
     final sourcesAsync = ref.watch(dataSourcesProvider);
     final pluginsAsync = ref.watch(installedPluginsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('数据源管理')),
-      // 右下角浮动按钮：新增数据源（点击弹出两种添加方式）
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddSourceSheet(context, ref),
-        tooltip: '新增数据源',
-        child: const Icon(Icons.add),
+      appBar: AppBar(
+        title: Text(_sortMode ? '拖动排序数据源' : '数据源管理'),
+        actions: [
+          // 排序开关：点一下进入拖拽排序，再点一下（勾）退出。
+          IconButton(
+            icon: Icon(_sortMode ? Icons.check : Icons.sort),
+            tooltip: _sortMode ? '完成' : '排序',
+            onPressed: _toggleSortMode,
+          ),
+        ],
       ),
-      body: _buildBody(context, ref, sourcesAsync, pluginsAsync),
+      // 右下角浮动按钮：新增数据源（点击弹出两种添加方式）。
+      // 排序模式下隐藏，避免误操作。
+      floatingActionButton: _sortMode
+          ? null
+          : FloatingActionButton(
+              onPressed: () => _showAddSourceSheet(context, ref),
+              tooltip: '新增数据源',
+              child: const Icon(Icons.add),
+            ),
+      body: _sortMode
+          ? _buildSortBody()
+          : _buildBody(context, ref, sourcesAsync, pluginsAsync),
     );
+  }
+
+  /// 进入/退出排序模式。
+  ///
+  /// 进入时：把当前所有的数据源 + 插件按 sortOrder 合并成一个列表，
+  /// 作为拖拽排序的"初始顺序"。退出时直接关掉开关即可。
+  Future<void> _toggleSortMode() async {
+    if (_sortMode) {
+      setState(() => _sortMode = false);
+      return;
+    }
+    // 读现成的列表（还没加载完就先用空列表，进入后由普通模式兜底刷新）
+    final sources = ref.read(dataSourcesProvider).valueOrNull ?? const [];
+    final plugins = ref.read(installedPluginsProvider).valueOrNull ?? const [];
+    final orders = await ref.read(appDatabaseProvider).getAllSortOrders();
+    final list = <_OrderedItem>[
+      for (final s in sources)
+        _OrderedItem(
+          id: s.id,
+          isPlugin: false,
+          title: s.name,
+          subtitle: s.apiUrl,
+        ),
+      for (final p in plugins)
+        _OrderedItem(
+          id: p.id,
+          isPlugin: true,
+          title: p.name,
+          subtitle: '插件 · ${p.manifest.id}',
+        ),
+    ];
+    // 按 sortOrder 升序交错排列（数据源和插件共用一套全局编号）
+    list.sort((a, b) => (orders[a.id] ?? 0).compareTo(orders[b.id] ?? 0));
+    setState(() {
+      _ordered = list;
+      _sortMode = true;
+    });
+  }
+
+  /// 排序模式下的主体：一个可拖拽重排的列表。
+  Widget _buildSortBody() {
+    if (_ordered.isEmpty) {
+      return const Center(child: Text('没有可排序的数据源'));
+    }
+    // ReorderableListView 默认整行可拖动（buildDefaultDragHandles=true），
+    // 左侧的拖拽手柄图标只是视觉提示。
+    return ReorderableListView(
+      onReorder: _onReorder,
+      children: [
+        for (final it in _ordered) _SortTile(key: Key(it.id), item: it),
+      ],
+    );
+  }
+
+  /// 拖拽结束后：先在本地把顺序调好（保证动画流畅），再把新顺序写回数据库。
+  void _onReorder(int oldIndex, int newIndex) {
+    setState(() {
+      final item = _ordered.removeAt(oldIndex);
+      _ordered.insert(newIndex, item);
+    });
+    _persistOrder();
+  }
+
+  /// 把当前顺序持久化：按新下标 0..n-1 给每个项分配 sortOrder，
+  /// 数据源和插件分别写回各自的表；写完后重新加载 provider，
+  /// 让普通模式下的展示也跟着变。
+  Future<void> _persistOrder() async {
+    final sourceOrders = <String, int>{};
+    final pluginOrders = <String, int>{};
+    for (var i = 0; i < _ordered.length; i++) {
+      final it = _ordered[i];
+      if (it.isPlugin) {
+        pluginOrders[it.id] = i;
+      } else {
+        sourceOrders[it.id] = i;
+      }
+    }
+    final db = ref.read(appDatabaseProvider);
+    await db.updateDataSourceSortOrders(sourceOrders);
+    await db.updatePluginSortOrders(pluginOrders);
+    await ref.read(dataSourcesProvider.notifier).reload();
+    await ref.read(installedPluginsProvider.notifier).reload();
   }
 
   /// 把"API 数据源"与"插件"合并展示在同一个列表里（分段标题 + 各自条目）。
@@ -390,6 +498,43 @@ class _InstallPluginDialogState extends ConsumerState<_InstallPluginDialog> {
               : const Text('下载并安装'),
         ),
       ],
+    );
+  }
+}
+
+/// 排序模式下列表里的一项：把"数据源"和"插件"统一成一种简单结构，
+/// 只保留拖拽/展示需要的字段（id / 是否插件 / 标题 / 副标题）。
+class _OrderedItem {
+  final String id;
+  final bool isPlugin; // true=插件，false=数据源
+  final String title;
+  final String subtitle;
+
+  const _OrderedItem({
+    required this.id,
+    required this.isPlugin,
+    required this.title,
+    required this.subtitle,
+  });
+}
+
+/// 排序模式下的一行：左侧拖拽手柄图标 + 标题/副标题，不可点（纯展示）。
+///
+/// 整行由外层 ReorderableListView 接管拖拽，这里只负责把内容画出来。
+class _SortTile extends StatelessWidget {
+  final _OrderedItem item;
+  const _SortTile({required super.key, required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: const Icon(Icons.drag_handle, color: Colors.grey),
+      title: Text(item.title),
+      subtitle: Text(
+        item.subtitle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }

@@ -106,7 +106,8 @@ class _Thumb extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        // 占位：加载中转圈
+        // 占位：图片还没下载完时先画一个灰色圆角块占住位置。
+        // （之前这里有个转圈圈，按需求去掉了 —— 单纯占位即可，不挡布局。）
         placeholder: (context, url) => const SizedBox(
           width: size,
           height: size,
@@ -115,7 +116,6 @@ class _Thumb extends StatelessWidget {
               color: Colors.black12,
               borderRadius: radius,
             ),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
           ),
         ),
         // 失败：占位图标
