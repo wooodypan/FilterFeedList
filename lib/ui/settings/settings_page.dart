@@ -62,6 +62,14 @@ class SettingsPage extends ConsumerWidget {
             onChanged: (v) =>
                 ref.read(feedSettingsProvider.notifier).setShowThumb(v),
           ),
+          SwitchListTile(
+            secondary: const Icon(Icons.vibration),
+            title: const Text('振动反馈'),
+            subtitle: const Text('切换顶部数据源标签时轻微振动'),
+            value: settings.hapticFeedback,
+            onChanged: (v) =>
+                ref.read(feedSettingsProvider.notifier).setHapticFeedback(v),
+          ),
           // 图片缓存保留天数：列表最下面一行的配置入口
           ListTile(
             leading: const Icon(Icons.image_search),

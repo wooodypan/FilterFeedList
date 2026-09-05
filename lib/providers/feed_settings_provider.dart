@@ -21,11 +21,16 @@ class FeedSettings {
   /// 改完要重启 App 才按新天数清理（清理发生在启动时）。
   final int imageCacheDays;
 
+  /// 振动触感反馈：点击顶部数据源 Tab 切换时轻微振动一下（默认开启）。
+  /// 纯体验增强，关掉后完全静默。
+  final bool hapticFeedback;
+
   const FeedSettings({
     this.aggregateMode = false,
     this.showThumb = true,
     this.fontScale = 1.0,
     this.imageCacheDays = FeedImageCacheManager.defaultDays,
+    this.hapticFeedback = true,
   });
 
   FeedSettings copyWith({
@@ -33,12 +38,14 @@ class FeedSettings {
     bool? showThumb,
     double? fontScale,
     int? imageCacheDays,
+    bool? hapticFeedback,
   }) {
     return FeedSettings(
       aggregateMode: aggregateMode ?? this.aggregateMode,
       showThumb: showThumb ?? this.showThumb,
       fontScale: fontScale ?? this.fontScale,
       imageCacheDays: imageCacheDays ?? this.imageCacheDays,
+      hapticFeedback: hapticFeedback ?? this.hapticFeedback,
     );
   }
 }
@@ -57,6 +64,7 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
   static const _kAggregate = 'aggregate_mode';
   static const _kShowThumb = 'show_thumb';
   static const _kFontScale = 'font_scale';
+  static const _kHapticFeedback = 'haptic_feedback';
   // 图片缓存天数的 key 直接用缓存管理器里定义的常量，两边共用一份
   static const _kImageCacheDays = FeedImageCacheManager.kImageCacheDaysPrefKey;
 
@@ -69,6 +77,8 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
       fontScale: prefs.getDouble(_kFontScale) ?? 1.0,
       imageCacheDays:
           prefs.getInt(_kImageCacheDays) ?? FeedImageCacheManager.defaultDays,
+      // 振动反馈默认开：老用户没存过这个 key，首次升级后也能享受新功能
+      hapticFeedback: prefs.getBool(_kHapticFeedback) ?? true,
     );
   }
 
@@ -99,6 +109,13 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
     state = state.copyWith(imageCacheDays: days);
   }
 
+  /// 开关振动触感反馈（立即生效，下次点 Tab 就按新值走）。
+  Future<void> setHapticFeedback(bool v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kHapticFeedback, v);
+    state = state.copyWith(hapticFeedback: v);
+  }
+
   /// 一次性写入整份设置（导入备份时用：备份里的开关要整体还原，逐项 set 会多写好几次）。
   Future<void> apply(FeedSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
@@ -106,6 +123,7 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
     await prefs.setBool(_kShowThumb, settings.showThumb);
     await prefs.setDouble(_kFontScale, settings.fontScale);
     await prefs.setInt(_kImageCacheDays, settings.imageCacheDays);
+    await prefs.setBool(_kHapticFeedback, settings.hapticFeedback);
     state = settings;
   }
 }
