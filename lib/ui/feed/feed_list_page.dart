@@ -95,17 +95,15 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
     with TickerProviderStateMixin {
   TabController? _tabController;
 
-  /// 拖动 TabBarView 时的起始页位置（pixels / 视口宽度 = 页下标）。
-  /// null 表示当前没有手指拖动。
-  double? _dragStartPage;
-
-  /// 本次拖动中，水平偏移是否已经超过一屏宽度的 50%。
-  bool _dragExceededHalf = false;
+  /// 上一次选中的 Tab 下标：用来检测「页码真的变了」。
+  int? _lastIndex;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: widget.sources.length, vsync: this);
+    // 监听控制器：页码一变（拖动翻页落定 / 点击切换）就回调 _onControllerTick
+    _tabController!.addListener(_onControllerTick);
   }
 
   @override
@@ -116,8 +114,10 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
 
     if (old.length != next.length) {
       // 数据源数量变了（新增 / 删除 / 启停）：旧索引已失效，重建控制器回到第一个
+      _tabController?.removeListener(_onControllerTick);
       _tabController?.dispose();
       _tabController = TabController(length: next.length, vsync: this);
+      _tabController!.addListener(_onControllerTick);
       return;
     }
     if (old.isEmpty) return;
@@ -143,41 +143,46 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
 
   @override
   void dispose() {
+    _tabController?.removeListener(_onControllerTick);
     _tabController?.dispose();
     super.dispose();
   }
 
-  /// TabBarView 的滚动通知：跟踪手指拖动，松手时偏移超过半屏就振一下。
+  /// TabController 回调：页码真的变了才振一次（振动跟随"翻页结果"）。
   ///
-  /// 事件顺序：手指按下开始拖（ScrollStart）→ 拖动中每帧（ScrollUpdate，
-  /// 带 dragDetails）→ 松手（ScrollEnd 第一次）→ 惯性滚动结束（ScrollEnd
-  /// 第二次）。靠 [ScrollUpdateNotification.dragDetails] 区分：只有手指
-  /// 真实拖动才有 dragDetails，点击 Tab 的补间动画和松手后的惯性滚动
-  /// 都没有——这保证拖动路径和点击路径（Tab 栏 onTap）互斥，各只振一次。
+  /// 为什么用结果而不是过程判定：TabBarView 翻页的触发条件是
+  /// 「位移过半 或 甩动速度够快」（PageScrollPhysics 内部逻辑），
+  /// 自己用位移猜会漏掉"快速轻扫"这种小位移高速翻页的情况。
+  /// 监听 index 变化则无论用户怎么滑，页码变了就是切了源，跟着振，
+  /// 和 Flutter 内部判定天然一致。
+  void _onControllerTick() {
+    final c = _tabController;
+    if (c == null) return;
+
+    final current = c.index;
+    final last = _lastIndex;
+    _lastIndex = current;
+    // 页码没变（拖动中途未过界、点击当前 Tab 等）→ 不振
+    if (last == null || current == last) return;
+
+    // 闸门关着 = 点击路径已经在 onTap 里振过了 → 跳过，防止双震。
+    // 拖动路径：手指按下开始拖时闸门已开（见 _onTabScrollNotification），
+    // 这里振一次并关闸；快速轻扫、慢拖过半、直接甩出去全都覆盖。
+    if (TabSwitchHapticGate.consumed) return;
+    TabSwitchHapticGate.consumed = true;
+
+    final settings = ref.read(feedSettingsProvider);
+    if (settings.hapticFeedback) {
+      HapticFeedback.selectionClick();
+    }
+  }
+
+  /// TabBarView 的滚动通知：只做一件事——手指开始拖动时开闸，
+  /// 允许随后的「页码变化」触发一次振动（点击路径的补间动画没有
+  /// dragDetails，不会开闸，所以点完 Tab 不会再震）。
   bool _onTabScrollNotification(ScrollNotification n) {
-    if (n is ScrollStartNotification) {
-      // 记起始页：pixels 除以视口宽度就是页下标（每页占满一屏宽）
-      _dragStartPage = n.metrics.pixels / n.metrics.viewportDimension;
-      _dragExceededHalf = false;
-    } else if (n is ScrollUpdateNotification) {
-      if (n.dragDetails != null && _dragStartPage != null) {
-        final page = n.metrics.pixels / n.metrics.viewportDimension;
-        // 拖动中实时判定：离开起始页超过半屏就记下来
-        if ((page - _dragStartPage!).abs() >= 0.5) {
-          _dragExceededHalf = true;
-        }
-      }
-    } else if (n is ScrollEndNotification) {
-      // 松手那一刻（第一次 ScrollEnd）判定；惯性结束的第二次 ScrollEnd
-      // 时 _dragExceededHalf 已复位，不会再振
-      if (_dragExceededHalf) {
-        final settings = ref.read(feedSettingsProvider);
-        if (settings.hapticFeedback) {
-          HapticFeedback.selectionClick();
-        }
-      }
-      _dragExceededHalf = false;
-      _dragStartPage = null;
+    if (n is ScrollStartNotification && n.dragDetails != null) {
+      TabSwitchHapticGate.consumed = false;
     }
     return false;
   }
@@ -206,8 +211,8 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
           ],
         ),
         Expanded(
-          // NotificationListener 负责监听页面拖动：松手且偏移超过半屏时振动
-          // （见 _onTabScrollNotification 的注释）
+          // NotificationListener 只负责一件事：手指开始拖动 TabBarView 时
+          // 打开振动闸门（见 _onTabScrollNotification 的注释）
           child: NotificationListener<ScrollNotification>(
             onNotification: _onTabScrollNotification,
             child: TabBarView(

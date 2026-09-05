@@ -5,6 +5,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../providers/feed_settings_provider.dart';
 import '../../../services/feed_source.dart';
 
+/// Tab 切换振动的「闸门」：保证一次切换只振一次。
+///
+/// 两条振动路径共用这个开关：
+/// - 点击路径：Tab 栏 onTap 里振完立刻关闸（consumed = true），
+///   之后 controller.index 变化时就不会再振；
+/// - 拖动路径：手指按下开始拖时开闸（consumed = false），
+///   之后页码真的变了（index 变化）才振一次并关闸。
+/// 放成 static 是因为它描述的是"当前这一次切换手势"的状态，
+/// 两个文件（Tab 栏 / 列表页）都要读写同一份。
+class TabSwitchHapticGate {
+  TabSwitchHapticGate._();
+
+  /// true = 本次切换的振动已处理（或没有待处理的振动）
+  static bool consumed = true;
+}
+
 /// 数据源 Tab 栏：每个启用的数据源对应一个标签。
 ///
 /// 源多时可横向滚动，并且**长按标签可以左右拖动排序**（改完会写回数据库）。
@@ -106,12 +122,12 @@ class _FeedSourceTabBarState extends ConsumerState<FeedSourceTabBar> {
         color: Colors.transparent,
         child: InkWell(
           onTap: () {
-            // 点击路径的振动在这里立即给（拖动路径的振动由 feed_list_page.dart
-            // 的滚动通知处理：松手且偏移超过半屏才振，两条路径互斥、各振一次）。
+            // 点击路径：立即振动，然后关闸——防止 index 变化时列表页那边再振一次
             final settings = ref.read(feedSettingsProvider);
             if (settings.hapticFeedback) {
               HapticFeedback.selectionClick();
             }
+            TabSwitchHapticGate.consumed = true;
             widget.controller.animateTo(index);
           },
           child: Container(
