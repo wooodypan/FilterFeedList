@@ -60,6 +60,7 @@ class FeedItemCard extends StatelessWidget {
                         // 已读就把标题染灰，一眼区分"读过的"和"没读的"
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: isRead ? Colors.grey : null,
+                          fontWeight: FontWeight.normal, // 常规（非粗体）
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -72,6 +73,7 @@ class FeedItemCard extends StatelessWidget {
                         // 已读时摘要也跟着变浅，整体灰度更统一
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: isRead ? Colors.grey : null,
+                          fontWeight: FontWeight.normal, // 常规（非粗体）
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -161,6 +163,7 @@ class _Meta extends StatelessWidget {
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
         // 已读时元信息也淡一点；未读时保持原本的灰色
         color: isRead ? Colors.grey.shade400 : Colors.grey,
+        fontWeight: FontWeight.normal, // 常规（非粗体）
       ),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,

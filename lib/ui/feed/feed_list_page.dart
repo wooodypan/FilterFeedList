@@ -95,15 +95,17 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
     with TickerProviderStateMixin {
   TabController? _tabController;
 
-  /// 上一次选中的 Tab 下标：index 一变就振一下（振动反馈的唯一来源）。
-  int? _lastIndex;
+  /// 拖动 TabBarView 时的起始页位置（pixels / 视口宽度 = 页下标）。
+  /// null 表示当前没有手指拖动。
+  double? _dragStartPage;
+
+  /// 本次拖动中，水平偏移是否已经超过一屏宽度的 50%。
+  bool _dragExceededHalf = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: widget.sources.length, vsync: this);
-    // 监听控制器：拖动过程中 offset 每帧都变，会持续回调 _onControllerTick
-    _tabController!.addListener(_onControllerTick);
   }
 
   @override
@@ -114,10 +116,8 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
 
     if (old.length != next.length) {
       // 数据源数量变了（新增 / 删除 / 启停）：旧索引已失效，重建控制器回到第一个
-      _tabController?.removeListener(_onControllerTick);
       _tabController?.dispose();
       _tabController = TabController(length: next.length, vsync: this);
-      _tabController!.addListener(_onControllerTick);
       return;
     }
     if (old.isEmpty) return;
@@ -143,30 +143,43 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
 
   @override
   void dispose() {
-    _tabController?.removeListener(_onControllerTick);
     _tabController?.dispose();
     super.dispose();
   }
 
-  /// TabController 回调：选中的 Tab 下标一变就振动一次。
+  /// TabBarView 的滚动通知：跟踪手指拖动，松手时偏移超过半屏就振一下。
   ///
-  /// - 点击 Tab：animateTo 会立刻改 index → 按下马上有反馈；
-  /// - 拖动列表：index 要等页面落定才变 → 松手后振一下。
-  /// 振动只在 index 变化时发一次，天然不会重复。
-  void _onControllerTick() {
-    final c = _tabController;
-    if (c == null) return;
-
-    final current = c.index;
-    final last = _lastIndex;
-    _lastIndex = current;
-    // 下标没变（拖动中途的 offset 变化、点击当前 Tab 等）→ 不振
-    if (last == null || current == last) return;
-
-    final settings = ref.read(feedSettingsProvider);
-    if (settings.hapticFeedback) {
-      HapticFeedback.selectionClick();
+  /// 事件顺序：手指按下开始拖（ScrollStart）→ 拖动中每帧（ScrollUpdate，
+  /// 带 dragDetails）→ 松手（ScrollEnd 第一次）→ 惯性滚动结束（ScrollEnd
+  /// 第二次）。靠 [ScrollUpdateNotification.dragDetails] 区分：只有手指
+  /// 真实拖动才有 dragDetails，点击 Tab 的补间动画和松手后的惯性滚动
+  /// 都没有——这保证拖动路径和点击路径（Tab 栏 onTap）互斥，各只振一次。
+  bool _onTabScrollNotification(ScrollNotification n) {
+    if (n is ScrollStartNotification) {
+      // 记起始页：pixels 除以视口宽度就是页下标（每页占满一屏宽）
+      _dragStartPage = n.metrics.pixels / n.metrics.viewportDimension;
+      _dragExceededHalf = false;
+    } else if (n is ScrollUpdateNotification) {
+      if (n.dragDetails != null && _dragStartPage != null) {
+        final page = n.metrics.pixels / n.metrics.viewportDimension;
+        // 拖动中实时判定：离开起始页超过半屏就记下来
+        if ((page - _dragStartPage!).abs() >= 0.5) {
+          _dragExceededHalf = true;
+        }
+      }
+    } else if (n is ScrollEndNotification) {
+      // 松手那一刻（第一次 ScrollEnd）判定；惯性结束的第二次 ScrollEnd
+      // 时 _dragExceededHalf 已复位，不会再振
+      if (_dragExceededHalf) {
+        final settings = ref.read(feedSettingsProvider);
+        if (settings.hapticFeedback) {
+          HapticFeedback.selectionClick();
+        }
+      }
+      _dragExceededHalf = false;
+      _dragStartPage = null;
     }
+    return false;
   }
 
   @override
@@ -193,15 +206,21 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
           ],
         ),
         Expanded(
-          child: TabBarView(
-            controller: controller,
-            // 给每个子页按源 id 加 key：顺序变化后 Flutter 才能把状态跟对源，
-            // 否则"第 2 页"可能错误地复用"第 3 页"的滚动位置等状态
-            children: widget.sources
-                .map(
-                  (s) => _SingleSourceFeedView(key: ValueKey(s.id), source: s),
-                )
-                .toList(),
+          // NotificationListener 负责监听页面拖动：松手且偏移超过半屏时振动
+          // （见 _onTabScrollNotification 的注释）
+          child: NotificationListener<ScrollNotification>(
+            onNotification: _onTabScrollNotification,
+            child: TabBarView(
+              controller: controller,
+              // 给每个子页按源 id 加 key：顺序变化后 Flutter 才能把状态跟对源，
+              // 否则"第 2 页"可能错误地复用"第 3 页"的滚动位置等状态
+              children: widget.sources
+                  .map(
+                    (s) =>
+                        _SingleSourceFeedView(key: ValueKey(s.id), source: s),
+                  )
+                  .toList(),
+            ),
           ),
         ),
       ],

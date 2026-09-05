@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../providers/feed_settings_provider.dart';
 import '../../../services/feed_source.dart';
 
 /// 数据源 Tab 栏：每个启用的数据源对应一个标签。
@@ -10,7 +13,8 @@ import '../../../services/feed_source.dart';
 ///
 /// 注意：参数是统一的 [FeedSource] 抽象（JSONPath 配置源 / RSS 订阅源 / JS
 /// 插件源都能用）。
-class FeedSourceTabBar extends StatefulWidget implements PreferredSizeWidget {
+class FeedSourceTabBar extends ConsumerStatefulWidget
+    implements PreferredSizeWidget {
   final List<FeedSource> sources;
   final TabController controller;
 
@@ -28,13 +32,13 @@ class FeedSourceTabBar extends StatefulWidget implements PreferredSizeWidget {
   });
 
   @override
-  State<FeedSourceTabBar> createState() => _FeedSourceTabBarState();
+  ConsumerState<FeedSourceTabBar> createState() => _FeedSourceTabBarState();
 
   @override
   Size get preferredSize => const Size.fromHeight(kTextTabBarHeight);
 }
 
-class _FeedSourceTabBarState extends State<FeedSourceTabBar> {
+class _FeedSourceTabBarState extends ConsumerState<FeedSourceTabBar> {
   @override
   void initState() {
     super.initState();
@@ -101,9 +105,15 @@ class _FeedSourceTabBarState extends State<FeedSourceTabBar> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          // 振动不在这里做：由 feed_list_page.dart 监听 TabController 统一处理
-          // （controller.index 一变就振，点击/拖动都只振一次）。
-          onTap: () => widget.controller.animateTo(index),
+          onTap: () {
+            // 点击路径的振动在这里立即给（拖动路径的振动由 feed_list_page.dart
+            // 的滚动通知处理：松手且偏移超过半屏才振，两条路径互斥、各振一次）。
+            final settings = ref.read(feedSettingsProvider);
+            if (settings.hapticFeedback) {
+              HapticFeedback.selectionClick();
+            }
+            widget.controller.animateTo(index);
+          },
           child: Container(
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 16),
