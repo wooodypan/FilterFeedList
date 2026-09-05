@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -94,10 +95,15 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
     with TickerProviderStateMixin {
   TabController? _tabController;
 
+  /// 上一次选中的 Tab 下标：index 一变就振一下（振动反馈的唯一来源）。
+  int? _lastIndex;
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: widget.sources.length, vsync: this);
+    // 监听控制器：拖动过程中 offset 每帧都变，会持续回调 _onControllerTick
+    _tabController!.addListener(_onControllerTick);
   }
 
   @override
@@ -108,8 +114,10 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
 
     if (old.length != next.length) {
       // 数据源数量变了（新增 / 删除 / 启停）：旧索引已失效，重建控制器回到第一个
+      _tabController?.removeListener(_onControllerTick);
       _tabController?.dispose();
       _tabController = TabController(length: next.length, vsync: this);
+      _tabController!.addListener(_onControllerTick);
       return;
     }
     if (old.isEmpty) return;
@@ -135,8 +143,30 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
 
   @override
   void dispose() {
+    _tabController?.removeListener(_onControllerTick);
     _tabController?.dispose();
     super.dispose();
+  }
+
+  /// TabController 回调：选中的 Tab 下标一变就振动一次。
+  ///
+  /// - 点击 Tab：animateTo 会立刻改 index → 按下马上有反馈；
+  /// - 拖动列表：index 要等页面落定才变 → 松手后振一下。
+  /// 振动只在 index 变化时发一次，天然不会重复。
+  void _onControllerTick() {
+    final c = _tabController;
+    if (c == null) return;
+
+    final current = c.index;
+    final last = _lastIndex;
+    _lastIndex = current;
+    // 下标没变（拖动中途的 offset 变化、点击当前 Tab 等）→ 不振
+    if (last == null || current == last) return;
+
+    final settings = ref.read(feedSettingsProvider);
+    if (settings.hapticFeedback) {
+      HapticFeedback.selectionClick();
+    }
   }
 
   @override

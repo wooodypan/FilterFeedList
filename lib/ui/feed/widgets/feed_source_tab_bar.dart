@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../providers/feed_settings_provider.dart';
 import '../../../services/feed_source.dart';
 
 /// 数据源 Tab 栏：每个启用的数据源对应一个标签。
@@ -13,8 +10,7 @@ import '../../../services/feed_source.dart';
 ///
 /// 注意：参数是统一的 [FeedSource] 抽象（JSONPath 配置源 / RSS 订阅源 / JS
 /// 插件源都能用）。
-class FeedSourceTabBar extends ConsumerStatefulWidget
-    implements PreferredSizeWidget {
+class FeedSourceTabBar extends StatefulWidget implements PreferredSizeWidget {
   final List<FeedSource> sources;
   final TabController controller;
 
@@ -32,13 +28,13 @@ class FeedSourceTabBar extends ConsumerStatefulWidget
   });
 
   @override
-  ConsumerState<FeedSourceTabBar> createState() => _FeedSourceTabBarState();
+  State<FeedSourceTabBar> createState() => _FeedSourceTabBarState();
 
   @override
   Size get preferredSize => const Size.fromHeight(kTextTabBarHeight);
 }
 
-class _FeedSourceTabBarState extends ConsumerState<FeedSourceTabBar> {
+class _FeedSourceTabBarState extends State<FeedSourceTabBar> {
   @override
   void initState() {
     super.initState();
@@ -105,17 +101,9 @@ class _FeedSourceTabBarState extends ConsumerState<FeedSourceTabBar> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: () {
-            // 振动触感反馈：设置里开着才振（selectionClick 是专门给
-            // "选中项切换"用的轻振动，iOS 上走 UISelectionFeedbackGenerator，
-            // Android 上是很短的一下，不会像 longPress 那样"震手"）。
-            // 用 ref.read 只在点击瞬间取值，不监听——开关变化不需要重建 Tab 栏。
-            final settings = ref.read(feedSettingsProvider);
-            if (settings.hapticFeedback) {
-              HapticFeedback.selectionClick();
-            }
-            widget.controller.animateTo(index);
-          },
+          // 振动不在这里做：由 feed_list_page.dart 监听 TabController 统一处理
+          // （controller.index 一变就振，点击/拖动都只振一次）。
+          onTap: () => widget.controller.animateTo(index),
           child: Container(
             alignment: Alignment.center,
             padding: const EdgeInsets.symmetric(horizontal: 16),
