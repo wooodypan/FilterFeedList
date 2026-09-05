@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/feed_article.dart';
 import '../../providers/feed_list_provider.dart';
@@ -314,7 +315,7 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
 
   /// 打开详情页：优先用已知源，否则按 sourceId 在已加载的数据源里反查。
   /// 这里用的是统一的 [FeedSource]（JSONPath 配置源 / JS 插件源都能传）。
-  void _openDetail(BuildContext context, FeedArticle article) {
+  Future<void> _openDetail(BuildContext context, FeedArticle article) async {
     FeedSource? source = widget.sourceConfig;
     if (source == null) {
       final sources = ref.read(allFeedSourcesProvider);
@@ -324,6 +325,26 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
     // 进入详情即视为"已读"：先把这篇文章 id 记进已读集合，
     // 这样返回列表时它的标题已经变成灰色（区分未读）。
     ref.read(readArticlesProvider.notifier).markRead(article.id);
-    context.push('/detail', extra: {'article': article, 'source': source});
+
+    // 尝试"App 深链直达"：开关开启 + 文章带深链（如 smzdm://youhui/123）。
+    // 成功拉起第三方 App 就直接返回（用户已离开本 App，无需再开 WebView）；
+    // 拉起失败（没装对应 App 等）则落到下面的 WebView 兜底。
+    final deepLink = article.appDeepLink;
+    if (source.useAppDeepLink && deepLink != null && deepLink.isNotEmpty) {
+      try {
+        final launched = await launchUrl(
+          Uri.parse(deepLink),
+          mode: LaunchMode.externalApplication,
+        );
+        if (launched) return;
+      } catch (_) {
+        // 唤起失败（例如该深链协议本机没有 App 能处理），无视异常走 WebView
+      }
+    }
+
+    // 兜底：用详情链接打开 WebView 详情页
+    if (context.mounted) {
+      context.push('/detail', extra: {'article': article, 'source': source});
+    }
   }
 }

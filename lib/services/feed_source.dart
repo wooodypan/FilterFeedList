@@ -40,6 +40,9 @@ abstract class FeedSource {
   /// 详情页 URL 拼接模板（webview 模式且需要二次拼接时用）
   String? get detailUrlTemplate;
 
+  /// 是否启用"App 深链直达"：开启且文章带 appDeepLink 时，点开优先拉起对应 App。
+  bool get useAppDeepLink;
+
   /// 该源的持久化归属：决定 Tab 排序序号要写回哪张 SQLite 表。
   FeedSourceStorage get storage;
 
@@ -78,6 +81,10 @@ class JsonPathFeedSource implements FeedSource {
 
   @override
   String? get detailUrlTemplate => config.detailUrlTemplate;
+
+  // 深链直达开关直接透传数据源配置里的值（默认 true）
+  @override
+  bool get useAppDeepLink => config.useAppDeepLink;
 
   // JSONPath 配置源存在 data_sources 表
   @override
@@ -127,6 +134,10 @@ class RssFeedSource implements FeedSource {
 
   @override
   String? get detailUrlTemplate => config.detailUrlTemplate;
+
+  // 深链直达开关直接透传数据源配置里的值（默认 true）
+  @override
+  bool get useAppDeepLink => config.useAppDeepLink;
 
   // RSS 订阅配置同样存在 data_sources 表（只是 sourceType 不同）
   @override

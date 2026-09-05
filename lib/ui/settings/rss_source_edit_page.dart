@@ -37,6 +37,9 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
   // 详情渲染方式（同 JSONPath 源：webview 开原文 / native 渲染全文 HTML）
   DetailRenderMode _detailMode = DetailRenderMode.webview;
 
+  // 是否启用"App 深链直达"（默认开启）
+  bool _useAppDeepLink = true;
+
   // 测试预览结果
   List<FeedArticle>? _preview;
   String? _previewError;
@@ -50,6 +53,7 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
       _nameC.text = c.name;
       _urlC.text = c.apiUrl;
       _detailMode = c.detailMode;
+      _useAppDeepLink = c.useAppDeepLink;
     } else if (widget.presetUrl != null) {
       // 从「推荐订阅」导入：预填地址，名称留空让用户编辑
       _urlC.text = widget.presetUrl!;
@@ -75,6 +79,7 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
       sourceType: DataSourceType.rss,
       apiUrl: _urlC.text.trim(),
       detailMode: _detailMode,
+      useAppDeepLink: _useAppDeepLink,
     );
   }
 
@@ -177,6 +182,12 @@ class _RssSourceEditPageState extends ConsumerState<RssSourceEditPage> {
                     ),
                   ],
                 ),
+              ),
+              SwitchListTile(
+                title: const Text('使用 AppDeepLink 直达 App'),
+                subtitle: const Text('开启后优先用文章的深链拉起对应 App'),
+                value: _useAppDeepLink,
+                onChanged: (v) => setState(() => _useAppDeepLink = v),
               ),
               const SizedBox(height: 20),
               SizedBox(

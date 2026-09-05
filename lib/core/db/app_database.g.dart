@@ -777,6 +777,21 @@ class $InstalledPluginsTable extends InstalledPlugins
     type: DriftSqlType.string,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _useAppDeepLinkMeta = const VerificationMeta(
+    'useAppDeepLink',
+  );
+  @override
+  late final GeneratedColumn<bool> useAppDeepLink = GeneratedColumn<bool>(
+    'use_app_deep_link',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("use_app_deep_link" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
+  );
   static const VerificationMeta _sortOrderMeta = const VerificationMeta(
     'sortOrder',
   );
@@ -799,6 +814,7 @@ class $InstalledPluginsTable extends InstalledPlugins
     enabled,
     installedAt,
     version,
+    useAppDeepLink,
     sortOrder,
   ];
   @override
@@ -881,6 +897,15 @@ class $InstalledPluginsTable extends InstalledPlugins
     } else if (isInserting) {
       context.missing(_versionMeta);
     }
+    if (data.containsKey('use_app_deep_link')) {
+      context.handle(
+        _useAppDeepLinkMeta,
+        useAppDeepLink.isAcceptableOrUnknown(
+          data['use_app_deep_link']!,
+          _useAppDeepLinkMeta,
+        ),
+      );
+    }
     if (data.containsKey('sort_order')) {
       context.handle(
         _sortOrderMeta,
@@ -928,6 +953,10 @@ class $InstalledPluginsTable extends InstalledPlugins
         DriftSqlType.string,
         data['${effectivePrefix}version'],
       )!,
+      useAppDeepLink: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}use_app_deep_link'],
+      )!,
       sortOrder: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}sort_order'],
@@ -967,6 +996,10 @@ class InstalledPluginsRow extends DataClass
   /// 版本号
   final String version;
 
+  /// 是否启用"App 深链直达"：开启后文章带 appDeepLink 时优先拉起对应 App。
+  /// 默认开启（和 json/rss 数据源保持一致），老库升级由 onUpgrade 自动填 true。
+  final bool useAppDeepLink;
+
   /// 信息流顶部 Tab 的排序序号（越小越靠前）。
   ///
   /// 含义同 DataSources.sortOrder：插件和数据源共用一套全局编号，
@@ -981,6 +1014,7 @@ class InstalledPluginsRow extends DataClass
     required this.enabled,
     required this.installedAt,
     required this.version,
+    required this.useAppDeepLink,
     required this.sortOrder,
   });
   @override
@@ -994,6 +1028,7 @@ class InstalledPluginsRow extends DataClass
     map['enabled'] = Variable<bool>(enabled);
     map['installed_at'] = Variable<DateTime>(installedAt);
     map['version'] = Variable<String>(version);
+    map['use_app_deep_link'] = Variable<bool>(useAppDeepLink);
     map['sort_order'] = Variable<int>(sortOrder);
     return map;
   }
@@ -1008,6 +1043,7 @@ class InstalledPluginsRow extends DataClass
       enabled: Value(enabled),
       installedAt: Value(installedAt),
       version: Value(version),
+      useAppDeepLink: Value(useAppDeepLink),
       sortOrder: Value(sortOrder),
     );
   }
@@ -1026,6 +1062,7 @@ class InstalledPluginsRow extends DataClass
       enabled: serializer.fromJson<bool>(json['enabled']),
       installedAt: serializer.fromJson<DateTime>(json['installedAt']),
       version: serializer.fromJson<String>(json['version']),
+      useAppDeepLink: serializer.fromJson<bool>(json['useAppDeepLink']),
       sortOrder: serializer.fromJson<int>(json['sortOrder']),
     );
   }
@@ -1041,6 +1078,7 @@ class InstalledPluginsRow extends DataClass
       'enabled': serializer.toJson<bool>(enabled),
       'installedAt': serializer.toJson<DateTime>(installedAt),
       'version': serializer.toJson<String>(version),
+      'useAppDeepLink': serializer.toJson<bool>(useAppDeepLink),
       'sortOrder': serializer.toJson<int>(sortOrder),
     };
   }
@@ -1054,6 +1092,7 @@ class InstalledPluginsRow extends DataClass
     bool? enabled,
     DateTime? installedAt,
     String? version,
+    bool? useAppDeepLink,
     int? sortOrder,
   }) => InstalledPluginsRow(
     id: id ?? this.id,
@@ -1064,6 +1103,7 @@ class InstalledPluginsRow extends DataClass
     enabled: enabled ?? this.enabled,
     installedAt: installedAt ?? this.installedAt,
     version: version ?? this.version,
+    useAppDeepLink: useAppDeepLink ?? this.useAppDeepLink,
     sortOrder: sortOrder ?? this.sortOrder,
   );
   InstalledPluginsRow copyWithCompanion(InstalledPluginsCompanion data) {
@@ -1082,6 +1122,9 @@ class InstalledPluginsRow extends DataClass
           ? data.installedAt.value
           : this.installedAt,
       version: data.version.present ? data.version.value : this.version,
+      useAppDeepLink: data.useAppDeepLink.present
+          ? data.useAppDeepLink.value
+          : this.useAppDeepLink,
       sortOrder: data.sortOrder.present ? data.sortOrder.value : this.sortOrder,
     );
   }
@@ -1097,6 +1140,7 @@ class InstalledPluginsRow extends DataClass
           ..write('enabled: $enabled, ')
           ..write('installedAt: $installedAt, ')
           ..write('version: $version, ')
+          ..write('useAppDeepLink: $useAppDeepLink, ')
           ..write('sortOrder: $sortOrder')
           ..write(')'))
         .toString();
@@ -1112,6 +1156,7 @@ class InstalledPluginsRow extends DataClass
     enabled,
     installedAt,
     version,
+    useAppDeepLink,
     sortOrder,
   );
   @override
@@ -1126,6 +1171,7 @@ class InstalledPluginsRow extends DataClass
           other.enabled == this.enabled &&
           other.installedAt == this.installedAt &&
           other.version == this.version &&
+          other.useAppDeepLink == this.useAppDeepLink &&
           other.sortOrder == this.sortOrder);
 }
 
@@ -1138,6 +1184,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
   final Value<bool> enabled;
   final Value<DateTime> installedAt;
   final Value<String> version;
+  final Value<bool> useAppDeepLink;
   final Value<int> sortOrder;
   final Value<int> rowid;
   const InstalledPluginsCompanion({
@@ -1149,6 +1196,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
     this.enabled = const Value.absent(),
     this.installedAt = const Value.absent(),
     this.version = const Value.absent(),
+    this.useAppDeepLink = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -1161,6 +1209,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
     this.enabled = const Value.absent(),
     required DateTime installedAt,
     required String version,
+    this.useAppDeepLink = const Value.absent(),
     this.sortOrder = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
@@ -1179,6 +1228,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
     Expression<bool>? enabled,
     Expression<DateTime>? installedAt,
     Expression<String>? version,
+    Expression<bool>? useAppDeepLink,
     Expression<int>? sortOrder,
     Expression<int>? rowid,
   }) {
@@ -1191,6 +1241,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
       if (enabled != null) 'enabled': enabled,
       if (installedAt != null) 'installed_at': installedAt,
       if (version != null) 'version': version,
+      if (useAppDeepLink != null) 'use_app_deep_link': useAppDeepLink,
       if (sortOrder != null) 'sort_order': sortOrder,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1205,6 +1256,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
     Value<bool>? enabled,
     Value<DateTime>? installedAt,
     Value<String>? version,
+    Value<bool>? useAppDeepLink,
     Value<int>? sortOrder,
     Value<int>? rowid,
   }) {
@@ -1217,6 +1269,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
       enabled: enabled ?? this.enabled,
       installedAt: installedAt ?? this.installedAt,
       version: version ?? this.version,
+      useAppDeepLink: useAppDeepLink ?? this.useAppDeepLink,
       sortOrder: sortOrder ?? this.sortOrder,
       rowid: rowid ?? this.rowid,
     );
@@ -1249,6 +1302,9 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
     if (version.present) {
       map['version'] = Variable<String>(version.value);
     }
+    if (useAppDeepLink.present) {
+      map['use_app_deep_link'] = Variable<bool>(useAppDeepLink.value);
+    }
     if (sortOrder.present) {
       map['sort_order'] = Variable<int>(sortOrder.value);
     }
@@ -1269,6 +1325,7 @@ class InstalledPluginsCompanion extends UpdateCompanion<InstalledPluginsRow> {
           ..write('enabled: $enabled, ')
           ..write('installedAt: $installedAt, ')
           ..write('version: $version, ')
+          ..write('useAppDeepLink: $useAppDeepLink, ')
           ..write('sortOrder: $sortOrder, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -1689,6 +1746,7 @@ typedef $$InstalledPluginsTableCreateCompanionBuilder =
       Value<bool> enabled,
       required DateTime installedAt,
       required String version,
+      Value<bool> useAppDeepLink,
       Value<int> sortOrder,
       Value<int> rowid,
     });
@@ -1702,6 +1760,7 @@ typedef $$InstalledPluginsTableUpdateCompanionBuilder =
       Value<bool> enabled,
       Value<DateTime> installedAt,
       Value<String> version,
+      Value<bool> useAppDeepLink,
       Value<int> sortOrder,
       Value<int> rowid,
     });
@@ -1752,6 +1811,11 @@ class $$InstalledPluginsTableFilterComposer
 
   ColumnFilters<String> get version => $composableBuilder(
     column: $table.version,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get useAppDeepLink => $composableBuilder(
+    column: $table.useAppDeepLink,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1810,6 +1874,11 @@ class $$InstalledPluginsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get useAppDeepLink => $composableBuilder(
+    column: $table.useAppDeepLink,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get sortOrder => $composableBuilder(
     column: $table.sortOrder,
     builder: (column) => ColumnOrderings(column),
@@ -1854,6 +1923,11 @@ class $$InstalledPluginsTableAnnotationComposer
 
   GeneratedColumn<String> get version =>
       $composableBuilder(column: $table.version, builder: (column) => column);
+
+  GeneratedColumn<bool> get useAppDeepLink => $composableBuilder(
+    column: $table.useAppDeepLink,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get sortOrder =>
       $composableBuilder(column: $table.sortOrder, builder: (column) => column);
@@ -1904,6 +1978,7 @@ class $$InstalledPluginsTableTableManager
                 Value<bool> enabled = const Value.absent(),
                 Value<DateTime> installedAt = const Value.absent(),
                 Value<String> version = const Value.absent(),
+                Value<bool> useAppDeepLink = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InstalledPluginsCompanion(
@@ -1915,6 +1990,7 @@ class $$InstalledPluginsTableTableManager
                 enabled: enabled,
                 installedAt: installedAt,
                 version: version,
+                useAppDeepLink: useAppDeepLink,
                 sortOrder: sortOrder,
                 rowid: rowid,
               ),
@@ -1928,6 +2004,7 @@ class $$InstalledPluginsTableTableManager
                 Value<bool> enabled = const Value.absent(),
                 required DateTime installedAt,
                 required String version,
+                Value<bool> useAppDeepLink = const Value.absent(),
                 Value<int> sortOrder = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => InstalledPluginsCompanion.insert(
@@ -1939,6 +2016,7 @@ class $$InstalledPluginsTableTableManager
                 enabled: enabled,
                 installedAt: installedAt,
                 version: version,
+                useAppDeepLink: useAppDeepLink,
                 sortOrder: sortOrder,
                 rowid: rowid,
               ),

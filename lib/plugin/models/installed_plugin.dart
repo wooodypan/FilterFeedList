@@ -17,6 +17,7 @@ class InstalledPlugin {
   final bool enabled;
   final DateTime installedAt;
   final String version;
+  final bool useAppDeepLink; // 是否启用"App 深链直达"（见 DataSourceConfig 同名字段）
 
   const InstalledPlugin({
     required this.id,
@@ -27,6 +28,7 @@ class InstalledPlugin {
     required this.enabled,
     required this.installedAt,
     required this.version,
+    this.useAppDeepLink = true,
   });
 
   /// 生成一个"测试用"的临时实例（不落库），供安装页"先跑一次验证"使用。
@@ -38,6 +40,7 @@ class InstalledPlugin {
     bool? enabled,
     DateTime? installedAt,
     String? version,
+    bool? useAppDeepLink,
   }) {
     return InstalledPlugin(
       id: id,
@@ -48,6 +51,7 @@ class InstalledPlugin {
       enabled: enabled ?? this.enabled,
       installedAt: installedAt ?? this.installedAt,
       version: version ?? this.version,
+      useAppDeepLink: useAppDeepLink ?? this.useAppDeepLink,
     );
   }
 
@@ -61,11 +65,20 @@ class InstalledPlugin {
           other.version == version &&
           other.enabled == enabled &&
           other.sourceUrl == sourceUrl &&
-          other.manifest == manifest;
+          other.manifest == manifest &&
+          other.useAppDeepLink == useAppDeepLink;
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, scriptContent, version, enabled, sourceUrl, manifest);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    scriptContent,
+    version,
+    enabled,
+    sourceUrl,
+    manifest,
+    useAppDeepLink,
+  );
 
   @override
   String toString() =>

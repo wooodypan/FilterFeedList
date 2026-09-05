@@ -14,6 +14,7 @@ class PluginArticle {
   final String? publishTime;
   final String? contentHtml;
   final String? detailUrl;
+  final String? appDeepLink;
 
   const PluginArticle({
     required this.id,
@@ -24,6 +25,7 @@ class PluginArticle {
     this.publishTime,
     this.contentHtml,
     this.detailUrl,
+    this.appDeepLink,
   });
 
   /// 把 JS 返回的一条对象安全地转成 PluginArticle。
@@ -49,6 +51,8 @@ class PluginArticle {
         publishTime: _opt(json['publishTime']),
         contentHtml: _opt(json['contentHtml'] ?? json['content']),
         detailUrl: _opt(json['detailUrl'] ?? json['url']),
+        // 插件可返回 appDeepLink（如 smzdm://youhui/123），点开文章时优先用它拉起 App
+        appDeepLink: _opt(json['appDeepLink']),
       );
     } catch (_) {
       return null;
@@ -63,14 +67,15 @@ class PluginArticle {
 
   /// 转成 app 内部统一的 FeedArticle（带上归属数据源 id）。
   FeedArticle toFeedArticle(String sourceId) => FeedArticle(
-        id: id,
-        title: title,
-        thumbUrl: thumbUrl,
-        summary: summary,
-        author: author,
-        publishTime: publishTime,
-        contentHtml: contentHtml,
-        detailUrl: detailUrl,
-        sourceId: sourceId,
-      );
+    id: id,
+    title: title,
+    thumbUrl: thumbUrl,
+    summary: summary,
+    author: author,
+    publishTime: publishTime,
+    contentHtml: contentHtml,
+    detailUrl: detailUrl,
+    appDeepLink: appDeepLink,
+    sourceId: sourceId,
+  );
 }

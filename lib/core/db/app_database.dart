@@ -29,7 +29,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase({QueryExecutor? executor}) : super(executor ?? _openConnection());
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   /// 迁移策略：只在"加列"这种向后兼容的结构变更时升级。
   ///
@@ -50,6 +50,14 @@ class AppDatabase extends _$AppDatabase {
       // 所以这里不需要再写 UPDATE 把老数据回填成"永久"。
       if (from < 4) {
         await migrator.addColumn(blockedKeywords, blockedKeywords.expiresAt);
+      }
+      // v4 -> v5：给插件表加 useAppDeepLink（App 深链直达开关）列。
+      // 该列有默认值 true，老插件升级后默认开启，符合"默认开启"的预期。
+      if (from < 5) {
+        await migrator.addColumn(
+          installedPlugins,
+          installedPlugins.useAppDeepLink,
+        );
       }
     },
   );
@@ -359,6 +367,7 @@ class AppDatabase extends _$AppDatabase {
         manifestJson: jsonEncode(plugin.manifest.toJson()),
         sourceUrl: plugin.sourceUrl,
         enabled: Value(plugin.enabled),
+        useAppDeepLink: Value(plugin.useAppDeepLink),
         // 注意：installedAt 没有默认值，.insert 工厂要求传原始 DateTime，
         // 不需要 Value() 包裹（enabled 有默认值才需要 Value）
         installedAt: plugin.installedAt,
@@ -408,6 +417,7 @@ class AppDatabase extends _$AppDatabase {
       enabled: row.enabled,
       installedAt: row.installedAt,
       version: row.version,
+      useAppDeepLink: row.useAppDeepLink,
     );
   }
 

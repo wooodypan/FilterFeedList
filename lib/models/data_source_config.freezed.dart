@@ -28,7 +28,10 @@ mixin _$DataSourceConfig {
  FieldMapping? get fieldMapping;/// 详情页渲染方式
 @DetailRenderModeConverter() DetailRenderMode get detailMode;/// 详情页 URL 拼接模板（如果详情走 webview 且链接需要二次拼接）
  String? get detailUrlTemplate;/// 是否启用（关闭后不参与信息流聚合）
- bool get enabled;
+ bool get enabled;/// 是否启用"App 深链直达"：开启后，若某条文章带 appDeepLink（如
+/// smzdm://youhui/123），点开时优先用它拉起对应 App；拉起失败再退回 WebView。
+/// 默认开启，与 smzdm 这类支持深链的插件配合体验最佳。
+ bool get useAppDeepLink;
 /// Create a copy of DataSourceConfig
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -41,16 +44,16 @@ $DataSourceConfigCopyWith<DataSourceConfig> get copyWith => _$DataSourceConfigCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is DataSourceConfig&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.sourceType, sourceType) || other.sourceType == sourceType)&&(identical(other.apiUrl, apiUrl) || other.apiUrl == apiUrl)&&(identical(other.method, method) || other.method == method)&&const DeepCollectionEquality().equals(other.headers, headers)&&const DeepCollectionEquality().equals(other.queryParams, queryParams)&&(identical(other.fieldMapping, fieldMapping) || other.fieldMapping == fieldMapping)&&(identical(other.detailMode, detailMode) || other.detailMode == detailMode)&&(identical(other.detailUrlTemplate, detailUrlTemplate) || other.detailUrlTemplate == detailUrlTemplate)&&(identical(other.enabled, enabled) || other.enabled == enabled));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is DataSourceConfig&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.sourceType, sourceType) || other.sourceType == sourceType)&&(identical(other.apiUrl, apiUrl) || other.apiUrl == apiUrl)&&(identical(other.method, method) || other.method == method)&&const DeepCollectionEquality().equals(other.headers, headers)&&const DeepCollectionEquality().equals(other.queryParams, queryParams)&&(identical(other.fieldMapping, fieldMapping) || other.fieldMapping == fieldMapping)&&(identical(other.detailMode, detailMode) || other.detailMode == detailMode)&&(identical(other.detailUrlTemplate, detailUrlTemplate) || other.detailUrlTemplate == detailUrlTemplate)&&(identical(other.enabled, enabled) || other.enabled == enabled)&&(identical(other.useAppDeepLink, useAppDeepLink) || other.useAppDeepLink == useAppDeepLink));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,sourceType,apiUrl,method,const DeepCollectionEquality().hash(headers),const DeepCollectionEquality().hash(queryParams),fieldMapping,detailMode,detailUrlTemplate,enabled);
+int get hashCode => Object.hash(runtimeType,id,name,sourceType,apiUrl,method,const DeepCollectionEquality().hash(headers),const DeepCollectionEquality().hash(queryParams),fieldMapping,detailMode,detailUrlTemplate,enabled,useAppDeepLink);
 
 @override
 String toString() {
-  return 'DataSourceConfig(id: $id, name: $name, sourceType: $sourceType, apiUrl: $apiUrl, method: $method, headers: $headers, queryParams: $queryParams, fieldMapping: $fieldMapping, detailMode: $detailMode, detailUrlTemplate: $detailUrlTemplate, enabled: $enabled)';
+  return 'DataSourceConfig(id: $id, name: $name, sourceType: $sourceType, apiUrl: $apiUrl, method: $method, headers: $headers, queryParams: $queryParams, fieldMapping: $fieldMapping, detailMode: $detailMode, detailUrlTemplate: $detailUrlTemplate, enabled: $enabled, useAppDeepLink: $useAppDeepLink)';
 }
 
 
@@ -61,7 +64,7 @@ abstract mixin class $DataSourceConfigCopyWith<$Res>  {
   factory $DataSourceConfigCopyWith(DataSourceConfig value, $Res Function(DataSourceConfig) _then) = _$DataSourceConfigCopyWithImpl;
 @useResult
 $Res call({
- String id, String name,@DataSourceTypeConverter() DataSourceType sourceType, String apiUrl, String method, Map<String, String>? headers, Map<String, String>? queryParams, FieldMapping? fieldMapping,@DetailRenderModeConverter() DetailRenderMode detailMode, String? detailUrlTemplate, bool enabled
+ String id, String name,@DataSourceTypeConverter() DataSourceType sourceType, String apiUrl, String method, Map<String, String>? headers, Map<String, String>? queryParams, FieldMapping? fieldMapping,@DetailRenderModeConverter() DetailRenderMode detailMode, String? detailUrlTemplate, bool enabled, bool useAppDeepLink
 });
 
 
@@ -78,7 +81,7 @@ class _$DataSourceConfigCopyWithImpl<$Res>
 
 /// Create a copy of DataSourceConfig
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? sourceType = null,Object? apiUrl = null,Object? method = null,Object? headers = freezed,Object? queryParams = freezed,Object? fieldMapping = freezed,Object? detailMode = null,Object? detailUrlTemplate = freezed,Object? enabled = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? sourceType = null,Object? apiUrl = null,Object? method = null,Object? headers = freezed,Object? queryParams = freezed,Object? fieldMapping = freezed,Object? detailMode = null,Object? detailUrlTemplate = freezed,Object? enabled = null,Object? useAppDeepLink = null,}) {
   return _then(DataSourceConfig(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -91,6 +94,7 @@ as Map<String, String>?,fieldMapping: freezed == fieldMapping ? _self.fieldMappi
 as FieldMapping?,detailMode: null == detailMode ? _self.detailMode : detailMode // ignore: cast_nullable_to_non_nullable
 as DetailRenderMode,detailUrlTemplate: freezed == detailUrlTemplate ? _self.detailUrlTemplate : detailUrlTemplate // ignore: cast_nullable_to_non_nullable
 as String?,enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
+as bool,useAppDeepLink: null == useAppDeepLink ? _self.useAppDeepLink : useAppDeepLink // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }
@@ -188,10 +192,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name, @DataSourceTypeConverter()  DataSourceType sourceType,  String apiUrl,  String method,  Map<String, String>? headers,  Map<String, String>? queryParams,  FieldMapping? fieldMapping, @DetailRenderModeConverter()  DetailRenderMode detailMode,  String? detailUrlTemplate,  bool enabled)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name, @DataSourceTypeConverter()  DataSourceType sourceType,  String apiUrl,  String method,  Map<String, String>? headers,  Map<String, String>? queryParams,  FieldMapping? fieldMapping, @DetailRenderModeConverter()  DetailRenderMode detailMode,  String? detailUrlTemplate,  bool enabled,  bool useAppDeepLink)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _DataSourceConfig() when $default != null:
-return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_that.headers,_that.queryParams,_that.fieldMapping,_that.detailMode,_that.detailUrlTemplate,_that.enabled);case _:
+return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_that.headers,_that.queryParams,_that.fieldMapping,_that.detailMode,_that.detailUrlTemplate,_that.enabled,_that.useAppDeepLink);case _:
   return orElse();
 
 }
@@ -209,10 +213,10 @@ return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name, @DataSourceTypeConverter()  DataSourceType sourceType,  String apiUrl,  String method,  Map<String, String>? headers,  Map<String, String>? queryParams,  FieldMapping? fieldMapping, @DetailRenderModeConverter()  DetailRenderMode detailMode,  String? detailUrlTemplate,  bool enabled)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name, @DataSourceTypeConverter()  DataSourceType sourceType,  String apiUrl,  String method,  Map<String, String>? headers,  Map<String, String>? queryParams,  FieldMapping? fieldMapping, @DetailRenderModeConverter()  DetailRenderMode detailMode,  String? detailUrlTemplate,  bool enabled,  bool useAppDeepLink)  $default,) {final _that = this;
 switch (_that) {
 case _DataSourceConfig():
-return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_that.headers,_that.queryParams,_that.fieldMapping,_that.detailMode,_that.detailUrlTemplate,_that.enabled);case _:
+return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_that.headers,_that.queryParams,_that.fieldMapping,_that.detailMode,_that.detailUrlTemplate,_that.enabled,_that.useAppDeepLink);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -229,10 +233,10 @@ return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name, @DataSourceTypeConverter()  DataSourceType sourceType,  String apiUrl,  String method,  Map<String, String>? headers,  Map<String, String>? queryParams,  FieldMapping? fieldMapping, @DetailRenderModeConverter()  DetailRenderMode detailMode,  String? detailUrlTemplate,  bool enabled)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name, @DataSourceTypeConverter()  DataSourceType sourceType,  String apiUrl,  String method,  Map<String, String>? headers,  Map<String, String>? queryParams,  FieldMapping? fieldMapping, @DetailRenderModeConverter()  DetailRenderMode detailMode,  String? detailUrlTemplate,  bool enabled,  bool useAppDeepLink)?  $default,) {final _that = this;
 switch (_that) {
 case _DataSourceConfig() when $default != null:
-return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_that.headers,_that.queryParams,_that.fieldMapping,_that.detailMode,_that.detailUrlTemplate,_that.enabled);case _:
+return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_that.headers,_that.queryParams,_that.fieldMapping,_that.detailMode,_that.detailUrlTemplate,_that.enabled,_that.useAppDeepLink);case _:
   return null;
 
 }
@@ -244,7 +248,7 @@ return $default(_that.id,_that.name,_that.sourceType,_that.apiUrl,_that.method,_
 @JsonSerializable()
 
 class _DataSourceConfig implements DataSourceConfig {
-  const _DataSourceConfig({required this.id, required this.name, @DataSourceTypeConverter() this.sourceType = DataSourceType.json, required this.apiUrl, this.method = 'GET',  Map<String, String>? headers,  Map<String, String>? queryParams, this.fieldMapping, @DetailRenderModeConverter() this.detailMode = DetailRenderMode.webview, this.detailUrlTemplate, this.enabled = true}): _headers = headers,_queryParams = queryParams;
+  const _DataSourceConfig({required this.id, required this.name, @DataSourceTypeConverter() this.sourceType = DataSourceType.json, required this.apiUrl, this.method = 'GET',  Map<String, String>? headers,  Map<String, String>? queryParams, this.fieldMapping, @DetailRenderModeConverter() this.detailMode = DetailRenderMode.webview, this.detailUrlTemplate, this.enabled = true, this.useAppDeepLink = true}): _headers = headers,_queryParams = queryParams;
   factory _DataSourceConfig.fromJson(Map<String, dynamic> json) => _$DataSourceConfigFromJson(json);
 
 /// 唯一 id（本地生成，用于数据库主键 / 去重标记）
@@ -288,6 +292,10 @@ class _DataSourceConfig implements DataSourceConfig {
 @override final  String? detailUrlTemplate;
 /// 是否启用（关闭后不参与信息流聚合）
 @override@JsonKey() final  bool enabled;
+/// 是否启用"App 深链直达"：开启后，若某条文章带 appDeepLink（如
+/// smzdm://youhui/123），点开时优先用它拉起对应 App；拉起失败再退回 WebView。
+/// 默认开启，与 smzdm 这类支持深链的插件配合体验最佳。
+@override@JsonKey() final  bool useAppDeepLink;
 
 /// Create a copy of DataSourceConfig
 /// with the given fields replaced by the non-null parameter values.
@@ -302,16 +310,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DataSourceConfig&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.sourceType, sourceType) || other.sourceType == sourceType)&&(identical(other.apiUrl, apiUrl) || other.apiUrl == apiUrl)&&(identical(other.method, method) || other.method == method)&&const DeepCollectionEquality().equals(other._headers, _headers)&&const DeepCollectionEquality().equals(other._queryParams, _queryParams)&&(identical(other.fieldMapping, fieldMapping) || other.fieldMapping == fieldMapping)&&(identical(other.detailMode, detailMode) || other.detailMode == detailMode)&&(identical(other.detailUrlTemplate, detailUrlTemplate) || other.detailUrlTemplate == detailUrlTemplate)&&(identical(other.enabled, enabled) || other.enabled == enabled));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _DataSourceConfig&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.sourceType, sourceType) || other.sourceType == sourceType)&&(identical(other.apiUrl, apiUrl) || other.apiUrl == apiUrl)&&(identical(other.method, method) || other.method == method)&&const DeepCollectionEquality().equals(other._headers, _headers)&&const DeepCollectionEquality().equals(other._queryParams, _queryParams)&&(identical(other.fieldMapping, fieldMapping) || other.fieldMapping == fieldMapping)&&(identical(other.detailMode, detailMode) || other.detailMode == detailMode)&&(identical(other.detailUrlTemplate, detailUrlTemplate) || other.detailUrlTemplate == detailUrlTemplate)&&(identical(other.enabled, enabled) || other.enabled == enabled)&&(identical(other.useAppDeepLink, useAppDeepLink) || other.useAppDeepLink == useAppDeepLink));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,sourceType,apiUrl,method,const DeepCollectionEquality().hash(_headers),const DeepCollectionEquality().hash(_queryParams),fieldMapping,detailMode,detailUrlTemplate,enabled);
+int get hashCode => Object.hash(runtimeType,id,name,sourceType,apiUrl,method,const DeepCollectionEquality().hash(_headers),const DeepCollectionEquality().hash(_queryParams),fieldMapping,detailMode,detailUrlTemplate,enabled,useAppDeepLink);
 
 @override
 String toString() {
-  return 'DataSourceConfig(id: $id, name: $name, sourceType: $sourceType, apiUrl: $apiUrl, method: $method, headers: $headers, queryParams: $queryParams, fieldMapping: $fieldMapping, detailMode: $detailMode, detailUrlTemplate: $detailUrlTemplate, enabled: $enabled)';
+  return 'DataSourceConfig(id: $id, name: $name, sourceType: $sourceType, apiUrl: $apiUrl, method: $method, headers: $headers, queryParams: $queryParams, fieldMapping: $fieldMapping, detailMode: $detailMode, detailUrlTemplate: $detailUrlTemplate, enabled: $enabled, useAppDeepLink: $useAppDeepLink)';
 }
 
 
@@ -322,7 +330,7 @@ abstract mixin class _$DataSourceConfigCopyWith<$Res> implements $DataSourceConf
   factory _$DataSourceConfigCopyWith(_DataSourceConfig value, $Res Function(_DataSourceConfig) _then) = __$DataSourceConfigCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name,@DataSourceTypeConverter() DataSourceType sourceType, String apiUrl, String method, Map<String, String>? headers, Map<String, String>? queryParams, FieldMapping? fieldMapping,@DetailRenderModeConverter() DetailRenderMode detailMode, String? detailUrlTemplate, bool enabled
+ String id, String name,@DataSourceTypeConverter() DataSourceType sourceType, String apiUrl, String method, Map<String, String>? headers, Map<String, String>? queryParams, FieldMapping? fieldMapping,@DetailRenderModeConverter() DetailRenderMode detailMode, String? detailUrlTemplate, bool enabled, bool useAppDeepLink
 });
 
 
@@ -339,7 +347,7 @@ class __$DataSourceConfigCopyWithImpl<$Res>
 
 /// Create a copy of DataSourceConfig
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? sourceType = null,Object? apiUrl = null,Object? method = null,Object? headers = freezed,Object? queryParams = freezed,Object? fieldMapping = freezed,Object? detailMode = null,Object? detailUrlTemplate = freezed,Object? enabled = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? sourceType = null,Object? apiUrl = null,Object? method = null,Object? headers = freezed,Object? queryParams = freezed,Object? fieldMapping = freezed,Object? detailMode = null,Object? detailUrlTemplate = freezed,Object? enabled = null,Object? useAppDeepLink = null,}) {
   return _then(_DataSourceConfig(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -352,6 +360,7 @@ as Map<String, String>?,fieldMapping: freezed == fieldMapping ? _self.fieldMappi
 as FieldMapping?,detailMode: null == detailMode ? _self.detailMode : detailMode // ignore: cast_nullable_to_non_nullable
 as DetailRenderMode,detailUrlTemplate: freezed == detailUrlTemplate ? _self.detailUrlTemplate : detailUrlTemplate // ignore: cast_nullable_to_non_nullable
 as String?,enabled: null == enabled ? _self.enabled : enabled // ignore: cast_nullable_to_non_nullable
+as bool,useAppDeepLink: null == useAppDeepLink ? _self.useAppDeepLink : useAppDeepLink // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

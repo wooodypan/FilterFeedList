@@ -31,6 +31,13 @@ class FeedArticle {
   /// WebView 模式下的详情链接（原生模式下为 null）
   final String? detailUrl;
 
+  /// App 深链（如 smzdm://youhui/181381829）。
+  ///
+  /// 由数据源插件（或字段映射）产出：点开文章时如果开关开启且这个值非空，
+  /// 优先用它拉起对应的第三方 App（直达特定页面）；否则退回普通详情链接。
+  /// 大部分数据源不会产生这个字段，此时为 null。
+  final String? appDeepLink;
+
   /// 归属哪个数据源（数据源 id）
   final String sourceId;
 
@@ -43,6 +50,7 @@ class FeedArticle {
     this.publishTime,
     this.contentHtml,
     this.detailUrl,
+    this.appDeepLink,
     required this.sourceId,
   });
 
@@ -64,8 +72,7 @@ class FeedArticle {
   /// 用 id 判断两条是否相同（多数据源聚合去重时用）
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is FeedArticle && other.id == id;
+      identical(this, other) || other is FeedArticle && other.id == id;
 
   @override
   int get hashCode => id.hashCode;

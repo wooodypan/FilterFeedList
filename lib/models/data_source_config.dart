@@ -107,6 +107,11 @@ abstract class DataSourceConfig with _$DataSourceConfig {
 
     /// 是否启用（关闭后不参与信息流聚合）
     @Default(true) bool enabled,
+
+    /// 是否启用"App 深链直达"：开启后，若某条文章带 appDeepLink（如
+    /// smzdm://youhui/123），点开时优先用它拉起对应 App；拉起失败再退回 WebView。
+    /// 默认开启，与 smzdm 这类支持深链的插件配合体验最佳。
+    @Default(true) bool useAppDeepLink,
   }) = _DataSourceConfig;
 
   /// 从 JSON 反序列化（drift 存取配置时用）

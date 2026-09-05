@@ -34,6 +34,10 @@ class JsPluginFeedSource implements FeedSource {
   @override
   String? get detailUrlTemplate => null;
 
+  // 深链直达开关透传插件自身设置（默认 true）
+  @override
+  bool get useAppDeepLink => plugin.useAppDeepLink;
+
   // 插件存在 installed_plugins 表，和数据源配置不是同一张表
   @override
   FeedSourceStorage get storage => FeedSourceStorage.plugin;

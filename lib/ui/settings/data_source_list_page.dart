@@ -513,6 +513,7 @@ class _EditPluginDialogState extends ConsumerState<_EditPluginDialog> {
   late final TextEditingController _scriptController;
   bool _saving = false; // 是否正在保存
   String? _error; // 校验/保存失败时的提示
+  bool _useAppDeepLink = true; // 是否启用"App 深链直达"（默认开启）
 
   @override
   void initState() {
@@ -522,6 +523,7 @@ class _EditPluginDialogState extends ConsumerState<_EditPluginDialog> {
     _scriptController = TextEditingController(
       text: widget.plugin.scriptContent,
     );
+    _useAppDeepLink = widget.plugin.useAppDeepLink;
   }
 
   @override
@@ -555,7 +557,11 @@ class _EditPluginDialogState extends ConsumerState<_EditPluginDialog> {
     try {
       // 用 copyWith 生成改后的实例：id / manifest / 版本号等都保持原值，
       // 只换 name 和 scriptContent，然后按 id 覆盖写入。
-      final updated = widget.plugin.copyWith(name: name, scriptContent: script);
+      final updated = widget.plugin.copyWith(
+        name: name,
+        scriptContent: script,
+        useAppDeepLink: _useAppDeepLink,
+      );
       await ref.read(installedPluginsProvider.notifier).update(updated);
 
       if (!mounted) return;
@@ -609,6 +615,15 @@ class _EditPluginDialogState extends ConsumerState<_EditPluginDialog> {
                   border: OutlineInputBorder(),
                   hintText: 'function buildRequest(...) { ... }',
                 ),
+              ),
+              const SizedBox(height: 12),
+              // App 深链直达开关：开启后，若插件产出的文章带 appDeepLink
+              // （如 smzdm://youhui/123），点开时优先拉起对应 App，拉起失败再退回 WebView。
+              SwitchListTile(
+                title: const Text('使用 AppDeepLink 直达 App'),
+                subtitle: const Text('开启后优先用文章的深链拉起对应 App'),
+                value: _useAppDeepLink,
+                onChanged: (v) => setState(() => _useAppDeepLink = v),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 12),

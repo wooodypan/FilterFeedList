@@ -37,6 +37,9 @@ class _FakeFeedSource implements FeedSource {
   String? get detailUrlTemplate => null;
 
   @override
+  bool get useAppDeepLink => true;
+
+  @override
   bool get supportsPagination => false;
 
   @override

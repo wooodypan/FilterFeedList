@@ -33,6 +33,7 @@ _DataSourceConfig _$DataSourceConfigFromJson(Map<String, dynamic> json) =>
             ),
       detailUrlTemplate: json['detailUrlTemplate'] as String?,
       enabled: json['enabled'] as bool? ?? true,
+      useAppDeepLink: json['useAppDeepLink'] as bool? ?? true,
     );
 
 Map<String, dynamic> _$DataSourceConfigToJson(
@@ -49,4 +50,5 @@ Map<String, dynamic> _$DataSourceConfigToJson(
   'detailMode': const DetailRenderModeConverter().toJson(instance.detailMode),
   'detailUrlTemplate': instance.detailUrlTemplate,
   'enabled': instance.enabled,
+  'useAppDeepLink': instance.useAppDeepLink,
 };

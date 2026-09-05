@@ -38,6 +38,11 @@ class InstalledPlugins extends Table {
   /// 版本号
   TextColumn get version => text()();
 
+  /// 是否启用"App 深链直达"：开启后文章带 appDeepLink 时优先拉起对应 App。
+  /// 默认开启（和 json/rss 数据源保持一致），老库升级由 onUpgrade 自动填 true。
+  BoolColumn get useAppDeepLink =>
+      boolean().withDefault(const Constant(true))();
+
   /// 信息流顶部 Tab 的排序序号（越小越靠前）。
   ///
   /// 含义同 DataSources.sortOrder：插件和数据源共用一套全局编号，

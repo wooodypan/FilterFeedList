@@ -69,6 +69,8 @@ class BackupPluginEntry {
     'manifest': plugin.manifest.toJson(),
     'sourceUrl': plugin.sourceUrl,
     'enabled': plugin.enabled,
+    // 是否启用"App 深链直达"，与数据源配置的同名字段保持一致
+    'useAppDeepLink': plugin.useAppDeepLink,
     // 时间统一存 ISO8601 字符串（JSON 没有"日期"类型）
     'installedAt': plugin.installedAt.toIso8601String(),
     'version': plugin.version,
@@ -117,6 +119,10 @@ class BackupPluginEntry {
         manifest: manifest,
         sourceUrl: raw['sourceUrl'] is String ? raw['sourceUrl'] as String : '',
         enabled: raw['enabled'] is bool ? raw['enabled'] as bool : true,
+        // 老备份没有这个字段时默认开启（与默认行为一致）
+        useAppDeepLink: raw['useAppDeepLink'] is bool
+            ? raw['useAppDeepLink'] as bool
+            : true,
         installedAt: installedAt,
         version: raw['version'] is String ? raw['version'] as String : '0.0.0',
       ),

@@ -44,6 +44,9 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
   // 详情渲染模式
   DetailRenderMode _detailMode = DetailRenderMode.webview;
 
+  // 是否启用"App 深链直达"（默认开启）
+  bool _useAppDeepLink = true;
+
   // 动态 key-value 列表（headers / queryParams）
   final List<_KvRow> _headers = [];
   final List<_KvRow> _queryParams = [];
@@ -67,6 +70,7 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
     _apiUrlC.text = c.apiUrl;
     _method = c.method;
     _detailMode = c.detailMode;
+    _useAppDeepLink = c.useAppDeepLink;
     // RSS 源没有字段映射（本页也只编辑 JSONPath 源），可空时跳过这部分
     final m = c.fieldMapping;
     if (m != null) {
@@ -132,6 +136,7 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
       queryParams: _collectMap(_queryParams),
       fieldMapping: mapping,
       detailMode: _detailMode,
+      useAppDeepLink: _useAppDeepLink,
     );
   }
 
@@ -310,6 +315,15 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
                   'contentPath（正文字段，如 content）',
                   validator: Validators.jsonPath,
                 ),
+              const Divider(),
+              // App 深链直达开关：开启后，若数据源产出的文章带 appDeepLink
+              // （如 smzdm://youhui/123），点开时优先拉起对应 App，拉起失败再退回 WebView。
+              SwitchListTile(
+                title: const Text('使用 AppDeepLink 直达 App'),
+                subtitle: const Text('开启后优先用文章的深链拉起对应 App'),
+                value: _useAppDeepLink,
+                onChanged: (v) => setState(() => _useAppDeepLink = v),
+              ),
               const Divider(),
               // 动态 headers
               _KvEditor(
