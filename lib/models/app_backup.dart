@@ -2,6 +2,7 @@ import 'package:filter_flow/models/data_source_config.dart';
 import 'package:filter_flow/plugin/models/installed_plugin.dart';
 import 'package:filter_flow/plugin/models/plugin_manifest.dart';
 import 'package:filter_flow/providers/feed_settings_provider.dart';
+import 'package:filter_flow/services/image_cache_manager.dart';
 
 /// 备份文件的格式标识。
 ///
@@ -175,6 +176,8 @@ class AppBackup {
       'aggregateMode': settings.aggregateMode,
       'showThumb': settings.showThumb,
       'fontScale': settings.fontScale,
+      'imageCacheDays': settings.imageCacheDays,
+      'hapticFeedback': settings.hapticFeedback,
     },
     'dataSources': dataSources.map((e) => e.toJson()).toList(),
     'plugins': plugins.map((e) => e.toJson()).toList(),
@@ -228,6 +231,13 @@ class AppBackup {
             fontScale: settingsRaw['fontScale'] is num
                 ? (settingsRaw['fontScale'] as num).toDouble()
                 : 1.0,
+            // 缓存天数 / 振动开关：同样向后兼容，缺字段时落回默认值
+            imageCacheDays: settingsRaw['imageCacheDays'] is int
+                ? settingsRaw['imageCacheDays'] as int
+                : FeedImageCacheManager.defaultDays,
+            hapticFeedback: settingsRaw['hapticFeedback'] is bool
+                ? settingsRaw['hapticFeedback'] as bool
+                : true,
           )
         : const FeedSettings();
 

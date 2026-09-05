@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../providers/feed_settings_provider.dart';
+import '../../services/image_cache_manager.dart';
 
 /// 设置主页：入口聚合 + 全局开关。
 class SettingsPage extends ConsumerWidget {
@@ -61,7 +62,56 @@ class SettingsPage extends ConsumerWidget {
             onChanged: (v) =>
                 ref.read(feedSettingsProvider.notifier).setShowThumb(v),
           ),
+          // 图片缓存保留天数：列表最下面一行的配置入口
+          ListTile(
+            leading: const Icon(Icons.image_search),
+            title: const Text('图片缓存保留天数'),
+            subtitle: Text('当前保留 ${settings.imageCacheDays} 天，超期自动清理（修改后重启生效）'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () =>
+                _pickImageCacheDays(context, ref, settings.imageCacheDays),
+          ),
         ],
+      ),
+    );
+  }
+
+  /// 弹出底部菜单让用户选择图片缓存保留多少天。
+  /// 选中后立刻保存到 SharedPreferences（真正按新天数清理要等下次启动）。
+  void _pickImageCacheDays(BuildContext context, WidgetRef ref, int current) {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  Text(
+                    '图片缓存保留天数',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ],
+              ),
+            ),
+            // 遍历可选天数，当前选中项打勾
+            for (final days in FeedImageCacheManager.kImageCacheDayOptions)
+              ListTile(
+                title: Text('$days 天'),
+                trailing: days == current ? const Icon(Icons.check) : null,
+                onTap: () {
+                  ref
+                      .read(feedSettingsProvider.notifier)
+                      .setImageCacheDays(days);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

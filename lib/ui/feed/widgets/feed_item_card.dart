@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../models/feed_article.dart';
+import '../../../services/image_cache_manager.dart';
 import '../text_explosion_sheet.dart';
 
 /// 信息流里的单条卡片：左侧缩略图 + 右侧标题/摘要/元信息。
@@ -109,6 +110,9 @@ class _Thumb extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
+        // 用自定义缓存管理器：保留天数由设置页配置（默认 2 天），
+        // 不用默认的 DefaultCacheManager（它固定保留 30 天）
+        cacheManager: FeedImageCacheManager.instance,
         // 占位：图片还没下载完时先画一个灰色圆角块占住位置。
         // （之前这里有个转圈圈，按需求去掉了 —— 单纯占位即可，不挡布局。）
         placeholder: (context, url) => const SizedBox(

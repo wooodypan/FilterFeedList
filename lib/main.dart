@@ -4,11 +4,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'app.dart';
 import 'core/db/app_database.dart';
 import 'providers/core_providers.dart';
+import 'services/image_cache_manager.dart';
 import 'utils/word_segmenter.dart';
 
 void main() async {
   // 初始化 Flutter 绑定（用到原生能力前必须调用）
   WidgetsFlutterBinding.ensureInitialized();
+
+  // 初始化图片缓存管理器：从设置里读"保留天数"（默认 2 天）。
+  // 必须在任何图片加载前完成，否则会先按默认值建实例、用户配置不生效。
+  await FeedImageCacheManager.init();
 
   // 准备文字大爆炸所需的 jieba 词典（首次复制内置 dict.dgz 到可写目录）。
   // 失败也不致命——没有词典时大爆炸会退化为按字切分。

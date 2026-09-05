@@ -33,6 +33,10 @@ dependencies:
 
   # ===== 图片加载缓存：缩略图列表核心依赖 =====
   cached_network_image: ^3.4.1
+  # 缓存管理器（cached_network_image 的底层，版本跟随其锁定）：
+  # 直接依赖它是因为 FeedImageCacheManager 要自定义"缓存保留天数"
+  # pubspec.lock里 dependency: transitive：表示你没有直接添加 flutter_cache_manager，但因为你的某个直接依赖（比如 image_picker 或 cached_network_image）内部需要它，所以它被自动拉进来了。它是你项目中某个直接依赖的“子依赖”（间接依赖）。
+  flutter_cache_manager: ^3.4.2
 
   # ===== 详情页 WebView 模式 =====
   webview_flutter: ^4.10.0
