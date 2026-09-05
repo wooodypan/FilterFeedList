@@ -29,6 +29,8 @@ class FeedListPage extends ConsumerWidget {
     final tabOrders = ref.watch(sourceSortOrdersProvider);
 
     return Scaffold(
+      // 白底风格：整页背景固定白色，和扁平列表行保持一致
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('漏斗阅读'),
         actions: [
@@ -309,9 +311,16 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
 
     return RefreshIndicator(
       onRefresh: widget.onRefresh,
-      child: ListView.builder(
+      // 用 separated 而不是 builder：可以在每两行之间插入一条 0.5px 的分割线，
+      // 这是"无卡片、纯白扁平列表"样式的关键（分割线不属于任何一行）。
+      child: ListView.separated(
         controller: _scroll,
         itemCount: state.articles.length + 1, // 多一个底部"加载更多"条目
+        // 行之间的 0.5px 分割线：高度 0.5 逻辑像素，在高清屏上就是一条细线
+        separatorBuilder: (context, index) => Container(
+          height: 0.5,
+          color: const Color(0xFFE5E5E5), // 浅灰分割线，白色行底上刚好可见
+        ),
         itemBuilder: (context, index) {
           // 最后一条：加载更多指示器
           if (index == state.articles.length) {

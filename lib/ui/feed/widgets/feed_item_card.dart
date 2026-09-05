@@ -23,13 +23,16 @@ class FeedItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      clipBehavior: Clip.antiAlias,
+    // 扁平白色行样式：不再用 Card（无边框圆角、无阴影、无外边距），
+    // 行与行之间的分隔交给列表页的 0.5px 分割线处理。
+    // 这里套一层 Material 是为了给 InkWell 提供水波纹的"画布"，
+    // 同时把行背景固定为白色（即使页面背景不是白色也能保持白底）。
+    return Material(
+      color: Colors.white,
       child: InkWell(
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
