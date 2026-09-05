@@ -8,6 +8,7 @@ import '../../providers/feed_list_provider.dart';
 import '../../providers/feed_settings_provider.dart';
 import '../../providers/read_articles_provider.dart';
 import '../../services/feed_source.dart';
+import 'widgets/all_sources_sheet.dart';
 import 'widgets/feed_item_card.dart';
 import 'widgets/feed_source_tab_bar.dart';
 
@@ -141,10 +142,23 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
     final controller = _tabController!;
     return Column(
       children: [
-        FeedSourceTabBar(
-          sources: widget.sources,
-          controller: controller,
-          onReorder: _onReorder,
+        Row(
+          children: [
+            // Tab 栏本身还是左右滑动 + 长按拖动，用于日常"临时微调"；
+            // 数量一多难以滑到目标位置的问题交给右侧的"全部"入口解决。
+            Expanded(
+              child: FeedSourceTabBar(
+                sources: widget.sources,
+                controller: controller,
+                onReorder: _onReorder,
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.grid_view_rounded),
+              tooltip: '全部数据源',
+              onPressed: () => _showAllSources(context, controller),
+            ),
+          ],
         ),
         Expanded(
           child: TabBarView(
@@ -159,6 +173,18 @@ class _TabbedFeedViewState extends ConsumerState<_TabbedFeedView>
           ),
         ),
       ],
+    );
+  }
+
+  /// 弹出"全部数据源"面板：一次性看全所有源，点击可直接跳转到对应 Tab，
+  /// 长按拖动可批量整理顺序（与 Tab 栏共用同一套排序数据）。
+  void _showAllSources(BuildContext context, TabController controller) {
+    AllSourcesSheet.show(
+      context,
+      sources: widget.sources,
+      currentIndex: controller.index,
+      onSelect: (index) => controller.animateTo(index),
+      onReorder: _onReorder,
     );
   }
 
