@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'models/data_source_config.dart';
 import 'models/feed_article.dart';
 import 'providers/feed_settings_provider.dart';
+import 'services/deep_link_service.dart';
 import 'services/feed_source.dart';
 import 'ui/common/webview_page.dart';
 import 'ui/detail/article_detail_page.dart';
@@ -116,6 +117,25 @@ class MyApp extends ConsumerWidget {
     final router = ref.watch(routerProvider);
     // 一次读出全部设置：字体缩放倍数 + 用户选的主题色
     final settings = ref.watch(feedSettingsProvider);
+
+    // 启动深链监听（filterread:// 开头的链接）。
+    // watch 是为了让这个 Provider 一直活着（不被自动回收），
+    // 服务内部会自己订阅系统的链接流。
+    ref.watch(deepLinkServiceProvider);
+
+    // 收到深链请求后，先把用户带到数据源页——
+    // 具体的"预填并弹安装对话框"由那个页面自己完成（因为它才有对话框）。
+    // 用 listen 而不是在 build 里直接 go：避免在构建过程中触发导航。
+    ref.listen<DeepLinkRequest?>(pendingPluginInstallProvider, (_, next) {
+      if (next == null) return;
+      // 已经停在数据源页了就别再 go：重复导航会重建页面，
+      // 可能把用户正在看的内容（比如排序模式）冲掉。
+      // 不导航也没关系——页面自己 watch 了这个 Provider，照样会弹框。
+      final current = router.routerDelegate.currentConfiguration;
+      final here = current.uri.toString();
+      if (here != '/settings/sources') router.go('/settings/sources');
+    });
+
     return MaterialApp.router(
       title: '漏斗阅读',
       debugShowCheckedModeBanner: false,

@@ -28,6 +28,17 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- 自定义 URL Scheme：让浏览器里的 filterread://... 能唤起本 App。
+                 用于"网页上一键安装插件"（见 lib/services/deep_link_service.dart）。
+                 BROWSABLE 必须加，否则从浏览器点击链接时系统不会把 Intent 派给我们；
+                 launchMode 已在上方形为 singleTop，从后台唤起时走 onNewIntent，
+                 app_links 插件会自动处理，不会重复创建页面。 -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="filterread"/>
+            </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

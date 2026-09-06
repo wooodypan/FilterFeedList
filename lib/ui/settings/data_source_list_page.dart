@@ -9,6 +9,7 @@ import '../../plugin/plugin_downloader.dart';
 import '../../providers/core_providers.dart';
 import '../../providers/data_source_provider.dart';
 import '../../providers/plugin_provider.dart';
+import '../../services/deep_link_service.dart';
 
 /// 数据源列表：展示所有已配置的数据源，可编辑 / 删除 / 开关启用。
 ///
@@ -34,6 +35,14 @@ class _DataSourceListPageState extends ConsumerState<DataSourceListPage> {
     // 同时监听两类"信息源"：JSONPath 数据源 + 已安装插件
     final sourcesAsync = ref.watch(dataSourcesProvider);
     final pluginsAsync = ref.watch(installedPluginsProvider);
+
+    // 深链：如果 App 是被 filterread://addsouce?... 唤起装插件的，
+    // 这里会拿到一个"待安装请求"。等当前帧画完再弹对话框（build 期间不能弹）。
+    if (ref.watch(pendingPluginInstallProvider) != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _consumePendingInstall(),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -264,20 +273,50 @@ class _DataSourceListPageState extends ConsumerState<DataSourceListPage> {
   }
 
   /// 弹出"输入插件 URL"的对话框。
-  void _showInstallPluginDialog(BuildContext context) {
+  ///
+  /// [presetUrl] / [presetName]：预填内容（深链唤起 App 时由链接参数带过来），
+  /// 不传就是空的输入框。预填后仍然要用户点按钮才装，不自动执行。
+  void _showInstallPluginDialog(
+    BuildContext context, {
+    String? presetUrl,
+    String? presetName,
+  }) {
     showDialog<void>(
       context: context,
-      builder: (_) => const _InstallPluginDialog(),
+      builder: (_) =>
+          _InstallPluginDialog(presetUrl: presetUrl, presetName: presetName),
     );
+  }
+
+  /// 处理"深链带来的待安装插件"。
+  ///
+  /// 场景：用户在浏览器点了 filterread://addsouce?type=plugin&url=... ，
+  /// 系统唤起 App → [MyApp] 把 pendingPluginInstallProvider 填好并跳到本页 →
+  /// 本页在这里弹对话框，把 URL 和名称预填好，等用户确认。
+  ///
+  /// 两个细节：
+  /// 1. 必须等一帧（addPostFrameCallback）再弹——build 期间弹对话框会报错；
+  /// 2. 弹之前先把请求清成 null，避免页面重建时重复弹。
+  void _consumePendingInstall() {
+    if (!mounted) return;
+    final req = ref.read(pendingPluginInstallProvider);
+    if (req == null) return; // 已经被处理掉了（比如同一帧进来两次）
+    ref.read(pendingPluginInstallProvider.notifier).state = null;
+    _showInstallPluginDialog(context, presetUrl: req.url, presetName: req.name);
   }
 }
 
-/// 安装插件对话框：输入 URL → 下载校验 → 确认安装。
+/// 安装插件对话框：填名称 + URL → 下载校验 → 确认安装。
 ///
 /// 使用 ConsumerStatefulWidget 是为了管理自己的异步状态
 /// （下载中 loading、错误提示），同时能通过 ref 拿插件系统的 Provider。
+///
+/// [presetUrl] / [presetName] 是深链带过来的预填值（可为空）。
 class _InstallPluginDialog extends ConsumerStatefulWidget {
-  const _InstallPluginDialog();
+  final String? presetUrl;
+  final String? presetName;
+
+  const _InstallPluginDialog({this.presetUrl, this.presetName});
 
   @override
   ConsumerState<_InstallPluginDialog> createState() =>
@@ -285,14 +324,30 @@ class _InstallPluginDialog extends ConsumerStatefulWidget {
 }
 
 class _InstallPluginDialogState extends ConsumerState<_InstallPluginDialog> {
-  final _urlController = TextEditingController();
+  late final TextEditingController _nameController;
+  late final TextEditingController _urlController;
   bool _loading = false; // 是否正在下载
   String? _error; // 下载/解析失败时的提示
 
   @override
+  void initState() {
+    super.initState();
+    // 深链带过来的值先填进输入框，用户可以在此基础上改、确认后再装
+    _nameController = TextEditingController(text: widget.presetName ?? '');
+    _urlController = TextEditingController(text: widget.presetUrl ?? '');
+  }
+
+  @override
   void dispose() {
+    _nameController.dispose();
     _urlController.dispose();
     super.dispose();
+  }
+
+  /// 本次安装要用的显示名：用户填了就用用户的，没填就用插件清单里的名字。
+  String _resolveName(String manifestName) {
+    final input = _nameController.text.trim();
+    return input.isEmpty ? manifestName : input;
   }
 
   /// 下载插件脚本并引导用户确认安装。
@@ -314,13 +369,14 @@ class _InstallPluginDialogState extends ConsumerState<_InstallPluginDialog> {
       final result = await ref.read(pluginDownloaderProvider).fetch(url);
 
       // 2) 弹出"确认安装"对话框，用户点头才真正落库
+      //    （把最终显示名一起传过去，让用户确认的就是真正会用的名字）
       final confirmed = await _confirmInstall(result);
       if (!confirmed) return;
 
       // 3) 组装成 InstalledPlugin 存进数据库（id 相同则覆盖更新）
       final plugin = InstalledPlugin(
         id: result.manifest.id,
-        name: result.manifest.name,
+        name: _resolveName(result.manifest.name),
         scriptContent: result.script, // 完整 JS 源码，本地持久化
         manifest: result.manifest,
         sourceUrl: result.sourceUrl, // 来源 URL，供"检查更新"用
@@ -358,6 +414,8 @@ class _InstallPluginDialogState extends ConsumerState<_InstallPluginDialog> {
   /// 确认安装对话框：把插件的清单信息展示给用户 + 风险提示。
   Future<bool> _confirmInstall(PluginDownloadResult result) async {
     final manifest = result.manifest;
+    // 显示名以"用户填的优先"，和真正落库用的名字保持一致
+    final displayName = _resolveName(manifest.name);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -373,7 +431,7 @@ class _InstallPluginDialogState extends ConsumerState<_InstallPluginDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    manifest.name,
+                    displayName,
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -453,10 +511,24 @@ class _InstallPluginDialogState extends ConsumerState<_InstallPluginDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 显示名称：留空就用插件清单里的名字。
+          // 深链带了 name 参数时这里已经被预填好。
+          TextField(
+            controller: _nameController,
+            enabled: !_loading,
+            decoration: const InputDecoration(
+              labelText: '显示名称（可留空）',
+              hintText: '留空则使用插件自带的名称',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
           // URL 输入框：支持粘贴完整脚本地址
           TextField(
             controller: _urlController,
-            autofocus: true,
+            // 有预填值时不要自动聚焦（用户要先看一眼确认），
+            // 没有预填值（手动点"安装插件"进来）才自动聚焦，省一次点击。
+            autofocus: widget.presetUrl == null,
             enabled: !_loading, // 下载中禁止再改
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
