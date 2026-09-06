@@ -39,6 +39,29 @@ class SettingsPage extends ConsumerWidget {
             onTap: () => context.push('/settings/font'),
           ),
           ListTile(
+            leading: const Icon(Icons.palette),
+            title: const Text('主题色'),
+            subtitle: const Text('选择主色调，也支持自定义取色'),
+            // 右侧先放一个当前主题色的小圆点，让用户一眼看到现在用的颜色
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: settings.themeColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black12),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
+            onTap: () => context.push('/settings/theme'),
+          ),
+          ListTile(
             leading: const Icon(Icons.backup),
             title: const Text('备份与恢复'),
             subtitle: const Text('导出 / 导入全部配置（含订阅源与屏蔽词）'),

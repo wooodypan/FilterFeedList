@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import 'package:filter_flow/models/data_source_config.dart';
 import 'package:filter_flow/plugin/models/installed_plugin.dart';
 import 'package:filter_flow/plugin/models/plugin_manifest.dart';
@@ -178,6 +180,8 @@ class AppBackup {
       'fontScale': settings.fontScale,
       'imageCacheDays': settings.imageCacheDays,
       'hapticFeedback': settings.hapticFeedback,
+      // 主题色：Color 不能直接进 JSON，存它的整数值（0xAARRGGBB）
+      'themeColor': settings.themeColor.toARGB32(),
     },
     'dataSources': dataSources.map((e) => e.toJson()).toList(),
     'plugins': plugins.map((e) => e.toJson()).toList(),
@@ -238,6 +242,14 @@ class AppBackup {
             hapticFeedback: settingsRaw['hapticFeedback'] is bool
                 ? settingsRaw['hapticFeedback'] as bool
                 : true,
+            // 主题色：老备份没有这个字段时用默认青绿；
+            // 顺手强制不透明，避免异常值让整套配色发灰
+            themeColor: settingsRaw['themeColor'] is int
+                ? Color(
+                    0xFF000000 |
+                        ((settingsRaw['themeColor'] as int) & 0x00FFFFFF),
+                  )
+                : Colors.teal,
           )
         : const FeedSettings();
 

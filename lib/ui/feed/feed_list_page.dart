@@ -419,6 +419,8 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
                 // 看一眼这篇有没有被标记成已读，决定标题要不要变灰
                 isRead: readIds.contains(article.id),
                 onTap: () => _openDetail(context, article),
+                // 长按标题以外的区域：弹出「使用默认浏览器打开」菜单
+                onRequestMenu: (position) => _showItemMenu(article, position),
               );
             },
           ),
@@ -452,6 +454,78 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
         ),
       ],
     );
+  }
+
+  /// 长按卡片（标题以外的区域）弹出的菜单。
+  ///
+  /// 目前只有一项：用系统默认浏览器打开原文。
+  /// position 传的是手指按下的屏幕坐标，菜单就弹在手指那儿，长列表里也好认。
+  Future<void> _showItemMenu(FeedArticle article, Offset position) async {
+    // showMenu 的 position 是「相对于 Overlay 的矩形」，所以要拿 Overlay 尺寸当参照系
+    final overlay = Overlay.of(context).context.findRenderObject();
+    if (overlay is! RenderBox) return;
+
+    final choice = await showMenu<String>(
+      context: context,
+      position: RelativeRect.fromRect(
+        Rect.fromPoints(position, position),
+        Offset.zero & overlay.size,
+      ),
+      items: const [
+        PopupMenuItem<String>(
+          value: 'browser',
+          child: Row(
+            children: [
+              Icon(Icons.open_in_browser),
+              SizedBox(width: 12),
+              Text('使用默认浏览器打开'),
+            ],
+          ),
+        ),
+      ],
+    );
+    // 点了菜单外的地方会返回 null，等于取消
+    if (!mounted || choice == null) return;
+
+    if (choice == 'browser') {
+      await _openInBrowser(article);
+    }
+  }
+
+  /// 用系统默认浏览器打开文章原文（跳出本 App）。
+  ///
+  /// LaunchMode.externalApplication = 交给系统挑一个能处理 http(s) 的 App，
+  /// 也就是用户自己设的默认浏览器；不会像 platformDefault 那样在 App 内嵌页面。
+  Future<void> _openInBrowser(FeedArticle article) async {
+    final url = article.detailUrl;
+    if (url == null || url.isEmpty) {
+      _showToast('这篇文章没有可用的详情链接');
+      return;
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      _showToast('链接格式不正确：$url');
+      return;
+    }
+
+    // 既然要跳出去看原文了，就算「读过了」，跟进入详情页的处理保持一致
+    ref.read(readArticlesProvider.notifier).markRead(article.id);
+
+    try {
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) _showToast('没有找到能打开该链接的应用');
+    } catch (e) {
+      // 个别机型/系统上唤起外部浏览器会抛异常，提示出来别静默
+      _showToast('打开失败：$e');
+    }
+  }
+
+  /// 底部轻提示（页面已销毁时直接忽略，避免报错）
+  void _showToast(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// 打开详情页：优先用已知源，否则按 sourceId 在已加载的数据源里反查。

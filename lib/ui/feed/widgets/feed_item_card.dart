@@ -6,11 +6,26 @@ import '../../../services/image_cache_manager.dart';
 import '../text_explosion_sheet.dart';
 
 /// 信息流里的单条卡片：左侧缩略图 + 右侧标题/摘要/元信息。
-class FeedItemCard extends StatelessWidget {
+///
+/// 三种手势，互不冲突：
+/// - 整行单击 → 打开详情（[onTap]）
+/// - 长按标题 → 文字大爆炸（分词加屏蔽词）
+/// - 长按其它区域 → 弹菜单（[onRequestMenu]，列表页实现为「使用默认浏览器打开」）
+///
+/// 关键设计：**整张卡片只挂一个长按识别器**，按下后按坐标判断落在标题上还是别处，
+/// 再决定走哪条分支。
+/// 不能写成「卡片一个长按 + 标题嵌套一个长按」——那样两个同类型识别器会在
+/// Flutter 手势竞技场里互相争抢，谁生效取决于注册顺序，行为不稳定。
+class FeedItemCard extends StatefulWidget {
   final FeedArticle article;
   final bool showThumb; // 是否显示缩略图（设置里可关）
   final bool isRead; // 是否已读：读过的标题变灰，和未读区分开
   final VoidCallback onTap;
+
+  /// 长按「标题以外」的区域时的回调，参数是手指按下的屏幕坐标
+  /// （列表页用它把菜单弹在手指位置，符合直觉）。
+  /// 不传就不弹菜单（但标题长按的文字大爆炸照常可用）。
+  final void Function(Offset globalPosition)? onRequestMenu;
 
   const FeedItemCard({
     super.key,
@@ -18,7 +33,53 @@ class FeedItemCard extends StatelessWidget {
     this.showThumb = true,
     this.isRead = false,
     required this.onTap,
+    this.onRequestMenu,
   });
+
+  @override
+  State<FeedItemCard> createState() => _FeedItemCardState();
+}
+
+class _FeedItemCardState extends State<FeedItemCard> {
+  /// 标题组件的 key：长按发生时用它量出标题在屏幕上的矩形，
+  /// 才能判断"手指是不是按在标题上"。
+  /// 必须放在 State 里长期持有，不能在 build 里临时 new（那样每次重建都会
+  /// 换来一个新 key，导致整个子树重建，列表滑动会掉帧）。
+  final GlobalKey _titleKey = GlobalKey();
+
+  /// 长按统一入口：先判断落点，再决定弹大爆炸还是弹菜单。
+  void _onLongPressStart(LongPressStartDetails details) {
+    if (_isOnTitle(details.globalPosition)) {
+      // 按在标题上 → 文字大爆炸（分词选词加屏蔽词）
+      TextExplosionSheet.show(context, widget.article.title);
+      return;
+    }
+    // 按在别处 → 交给列表页弹菜单（「使用默认浏览器打开」）
+    widget.onRequestMenu?.call(details.globalPosition);
+  }
+
+  /// 判断某个屏幕坐标是否落在标题区域内。
+  ///
+  /// 做法：用标题的 RenderBox 拿到它在屏幕上的矩形（localToGlobal），
+  /// 再判断点是否在矩形内。横向向右放宽到卡片右边缘——标题经常只有几个字，
+  /// 点在标题右边的空白也应该算"按在标题行上"，更好按。
+  bool _isOnTitle(Offset globalPosition) {
+    final titleBox = _titleKey.currentContext?.findRenderObject();
+    if (titleBox is! RenderBox || !titleBox.attached) return false;
+
+    final topLeft = titleBox.localToGlobal(Offset.zero);
+    var rect = topLeft & titleBox.size;
+
+    final cardBox = context.findRenderObject();
+    if (cardBox is RenderBox && cardBox.attached) {
+      final cardRight =
+          (cardBox.localToGlobal(Offset.zero) & cardBox.size).right;
+      rect = Rect.fromLTRB(rect.left, rect.top, cardRight, rect.bottom);
+    }
+
+    // 上下各放宽 4px：手指不一定那么精准，别让用户"明明按在标题上却弹了菜单"
+    return rect.inflate(4).contains(globalPosition);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,12 +87,20 @@ class FeedItemCard extends StatelessWidget {
 
     // 扁平白色行样式：不再用 Card（无边框圆角、无阴影、无外边距），
     // 行与行之间的分隔交给列表页的 0.5px 分割线处理。
-    // 这里套一层 Material 是为了给 InkWell 提供水波纹的"画布"，
-    // 同时把行背景固定为白色（即使页面背景不是白色也能保持白底）。
+    // 最外层套 Material 是为了把行背景固定成白色
+    // （即使页面背景不是白色，这一行也保持白底）。
     return Material(
       color: Colors.white,
-      child: InkWell(
-        onTap: onTap,
+      // 点击和长按由同一个 GestureDetector 承担：
+      // - onTap：单击打开详情
+      // - onLongPressStart：长按，按落点决定弹大爆炸还是弹菜单
+      // 两者是不同类型的手势识别器，Flutter 手势竞技场会自动区分：
+      // 快速抬起 = 单击；按住超过约 500ms = 长按，此时单击被取消，不会两个都触发。
+      // opaque = 空白区域也算命中，不必精准按在文字笔画上。
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPressStart: _onLongPressStart,
+        onTap: widget.onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
@@ -39,40 +108,36 @@ class FeedItemCard extends StatelessWidget {
             children: [
               // 缩略图：开关打开【且】文章确实带图时才画；
               // URL 为空就整体隐藏（不再画灰色占位框），让右侧文字区占满整行。
-              if (showThumb && article.thumbUrl.isNotEmpty)
-                _Thumb(url: article.thumbUrl),
-              if (showThumb && article.thumbUrl.isNotEmpty)
+              if (widget.showThumb && widget.article.thumbUrl.isNotEmpty)
+                _Thumb(url: widget.article.thumbUrl),
+              if (widget.showThumb && widget.article.thumbUrl.isNotEmpty)
                 const SizedBox(width: 12),
               // 右侧文字区
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 标题：支持「长按」触发文字大爆炸（分词 + 滑动选词加屏蔽词）。
-                    // 普通点击仍由外层 InkWell 打开详情，两者不冲突。
-                    GestureDetector(
-                      // 让整块文字区域（含省略号区域）都能响应长按
-                      behavior: HitTestBehavior.opaque,
-                      onLongPress: () =>
-                          TextExplosionSheet.show(context, article.title),
-                      child: Text(
-                        article.title,
-                        // 已读就把标题染灰，一眼区分"读过的"和"没读的"
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: isRead ? Colors.grey : null,
-                          fontWeight: FontWeight.normal, // 常规（非粗体）
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    // 标题：这里【不挂】手势，只用一个 key 标记位置。
+                    // 长按是否落在标题上，统一由上面的 _onLongPressStart 判断，
+                    // 这样"标题长按"和"整卡长按"就不会互相抢手势。
+                    Text(
+                      key: _titleKey,
+                      widget.article.title,
+                      // 已读就把标题染灰，一眼区分"读过的"和"没读的"
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: widget.isRead ? Colors.grey : null,
+                        fontWeight: FontWeight.normal, // 常规（非粗体）
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    if (article.summary?.isNotEmpty == true) ...[
+                    if (widget.article.summary?.isNotEmpty == true) ...[
                       const SizedBox(height: 6),
                       Text(
-                        article.summary!,
+                        widget.article.summary!,
                         // 已读时摘要也跟着变浅，整体灰度更统一
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: isRead ? Colors.grey : null,
+                          color: widget.isRead ? Colors.grey : null,
                           fontWeight: FontWeight.normal, // 常规（非粗体）
                         ),
                         maxLines: 2,
@@ -80,7 +145,7 @@ class FeedItemCard extends StatelessWidget {
                       ),
                     ],
                     const SizedBox(height: 8),
-                    _Meta(article: article, isRead: isRead),
+                    _Meta(article: widget.article, isRead: widget.isRead),
                   ],
                 ),
               ),

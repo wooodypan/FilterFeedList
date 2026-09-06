@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -25,12 +26,20 @@ class FeedSettings {
   /// 纯体验增强，关掉后完全静默。
   final bool hapticFeedback;
 
+  /// 主题色：App 的主色调（默认青绿，和改造前写死的 Colors.teal 一致）。
+  ///
+  /// 它不是"某一个按钮的颜色"，而是交给 Material3 的 colorSchemeSeed：
+  /// Flutter 会用这一个颜色自动推导出整套配色（主色、次要色、容器色、
+  /// 各层级背景……），所以只改这一个值，全 App 的观感就跟着变。
+  final Color themeColor;
+
   const FeedSettings({
     this.aggregateMode = false,
     this.showThumb = true,
     this.fontScale = 1.0,
     this.imageCacheDays = FeedImageCacheManager.defaultDays,
     this.hapticFeedback = true,
+    this.themeColor = Colors.teal,
   });
 
   FeedSettings copyWith({
@@ -39,6 +48,7 @@ class FeedSettings {
     double? fontScale,
     int? imageCacheDays,
     bool? hapticFeedback,
+    Color? themeColor,
   }) {
     return FeedSettings(
       aggregateMode: aggregateMode ?? this.aggregateMode,
@@ -46,6 +56,7 @@ class FeedSettings {
       fontScale: fontScale ?? this.fontScale,
       imageCacheDays: imageCacheDays ?? this.imageCacheDays,
       hapticFeedback: hapticFeedback ?? this.hapticFeedback,
+      themeColor: themeColor ?? this.themeColor,
     );
   }
 }
@@ -65,6 +76,7 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
   static const _kShowThumb = 'show_thumb';
   static const _kFontScale = 'font_scale';
   static const _kHapticFeedback = 'haptic_feedback';
+  static const _kThemeColor = 'theme_color';
   // 图片缓存天数的 key 直接用缓存管理器里定义的常量，两边共用一份
   static const _kImageCacheDays = FeedImageCacheManager.kImageCacheDaysPrefKey;
 
@@ -79,6 +91,9 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
           prefs.getInt(_kImageCacheDays) ?? FeedImageCacheManager.defaultDays,
       // 振动反馈默认开：老用户没存过这个 key，首次升级后也能享受新功能
       hapticFeedback: prefs.getBool(_kHapticFeedback) ?? true,
+      // 主题色：存的是 Color 的整数值（0xAARRGGBB）。老版本没存过就用默认青绿。
+      // 顺手把透明通道抹掉（强制不透明），避免异常数据导致整套配色发灰。
+      themeColor: _decodeColor(prefs.getInt(_kThemeColor)),
     );
   }
 
@@ -116,6 +131,14 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
     state = state.copyWith(hapticFeedback: v);
   }
 
+  /// 设置主题色（立即生效：[MyApp] 会把这个值作为 colorSchemeSeed 重建整套配色）。
+  Future<void> setThemeColor(Color v) async {
+    final prefs = await SharedPreferences.getInstance();
+    // 只存整数值（0xAARRGGBB）；读取时再还原成 Color
+    await prefs.setInt(_kThemeColor, v.toARGB32());
+    state = state.copyWith(themeColor: v);
+  }
+
   /// 一次性写入整份设置（导入备份时用：备份里的开关要整体还原，逐项 set 会多写好几次）。
   Future<void> apply(FeedSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
@@ -124,6 +147,17 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
     await prefs.setDouble(_kFontScale, settings.fontScale);
     await prefs.setInt(_kImageCacheDays, settings.imageCacheDays);
     await prefs.setBool(_kHapticFeedback, settings.hapticFeedback);
+    await prefs.setInt(_kThemeColor, settings.themeColor.toARGB32());
     state = settings;
+  }
+
+  /// 把存进 SharedPreferences 的整数还原成 Color。
+  ///
+  /// 做了两件防御：
+  /// - 没存过（null）或数值不合法 → 回落到默认青绿；
+  /// - 强制不透明（把 alpha 位置成 0xFF）：半透明的主色会让文字/按钮对比度崩掉。
+  static Color _decodeColor(int? value) {
+    if (value == null) return Colors.teal;
+    return Color(0xFF000000 | (value & 0x00FFFFFF));
   }
 }

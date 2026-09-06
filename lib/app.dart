@@ -18,6 +18,7 @@ import 'ui/settings/opml_import_page.dart';
 import 'ui/settings/rss_recommend_config.dart';
 import 'ui/settings/rss_source_edit_page.dart';
 import 'ui/settings/settings_page.dart';
+import 'ui/settings/theme_color_page.dart';
 
 /// 全局路由表（声明式，go_router）。
 /// 详情页通过 extra 把 article + config 对象传过去（内存传参，简单直接）。
@@ -95,6 +96,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const FontSettingsPage(),
       ),
       GoRoute(
+        path: '/settings/theme',
+        builder: (context, state) => const ThemeColorPage(),
+      ),
+      GoRoute(
         path: '/settings/backup',
         builder: (context, state) => const BackupPage(),
       ),
@@ -109,12 +114,18 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    // 读取用户设置的字体缩放倍数（默认 1.0）
-    final fontScale = ref.watch(feedSettingsProvider).fontScale;
+    // 一次读出全部设置：字体缩放倍数 + 用户选的主题色
+    final settings = ref.watch(feedSettingsProvider);
     return MaterialApp.router(
       title: '漏斗阅读',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.teal),
+      // colorSchemeSeed：给 Material3 一个"种子色"，Flutter 自动推导出
+      // 完整的一套配色（primary / secondary / 容器色 / 各层背景……）。
+      // 所以用户在主题色页只选一个颜色，全 App 的观感就整体跟着变。
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: settings.themeColor,
+      ),
       routerConfig: router,
       // builder 里包一层 MediaQuery，把"字体缩放"作用到全 App 所有文字上。
       // 这样改一处、列表标题/正文/设置页一起变，和微信的字体设置一个效果。
@@ -123,7 +134,7 @@ class MyApp extends ConsumerWidget {
         // 用 TextScaler.linear 线性缩放：1.0 不变，>1 放大，<1 缩小
         data: MediaQuery.of(
           context,
-        ).copyWith(textScaler: TextScaler.linear(fontScale)),
+        ).copyWith(textScaler: TextScaler.linear(settings.fontScale)),
         child: child!,
       ),
     );
