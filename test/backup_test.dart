@@ -42,7 +42,9 @@ void main() {
     test('导出内容完整：数据源 / 插件 / 屏蔽词 / 设置都进备份', () async {
       await db.upsertDataSource(_rssConfig('a', name: '源A'));
       await db.upsertInstalledPlugin(_plugin('p1'));
-      await db.addBlockedKeywords(['垃圾', '广告']);
+      // 一条带过期时间（2026-12-31 解封），一条永久
+      await db.addBlockedKeyword('广告', expiresAt: DateTime.utc(2026, 12, 31));
+      await db.addBlockedKeyword('垃圾');
       final settings = const FeedSettings(
         aggregateMode: true,
         showThumb: false,
@@ -55,7 +57,16 @@ void main() {
       expect(backup.dataSources.first.config.name, '源A');
       expect(backup.plugins.length, 1);
       expect(backup.plugins.first.plugin.id, 'p1');
-      expect(backup.blockedKeywords, containsAll(['垃圾', '广告']));
+
+      // 屏蔽词导出时要把 expiresAt 一起带上
+      final adEntry = backup.blockedKeywords.firstWhere((e) => e.word == '广告');
+      final junkEntry = backup.blockedKeywords.firstWhere(
+        (e) => e.word == '垃圾',
+      );
+      expect(adEntry.expiresAt?.year, 2026, reason: '带过期的词应带上过期时间');
+      expect(adEntry.expiresAt?.month, 12);
+      expect(junkEntry.expiresAt, isNull, reason: '永久屏蔽的 expiresAt 应为 null');
+
       expect(backup.settings.aggregateMode, isTrue);
       expect(backup.settings.showThumb, isFalse);
     });
@@ -63,7 +74,8 @@ void main() {
     test('导出 -> 编码 -> 解析 -> 导入新库，能原样还原', () async {
       await db.upsertDataSource(_rssConfig('a'));
       await db.upsertInstalledPlugin(_plugin('p1'));
-      await db.addBlockedKeywords(['广告']);
+      // 带过期时间的屏蔽词，验证导入后能原样还原
+      await db.addBlockedKeyword('广告', expiresAt: DateTime.utc(2026, 12, 31));
       final settings = const FeedSettings(aggregateMode: true);
       final original = await service.exportBackup(settings);
 
@@ -83,10 +95,16 @@ void main() {
 
       final sources = await db2.getAllDataSources();
       final plugins = await db2.getAllInstalledPlugins();
+      final keywordRows = await db2.getAllBlockedKeywordEntries();
       final keywords = await db2.getAllBlockedKeywords();
       expect(sources.map((c) => c.id), contains('a'));
       expect(plugins.map((p) => p.id), contains('p1'));
       expect(keywords, contains('广告'));
+
+      // 关键：过期时间要在「编码→解析→导入」全链路后原样还原
+      final adRow = keywordRows.firstWhere((e) => e.word == '广告');
+      expect(adRow.expiresAt?.year, 2026, reason: '过期时间不应在备份往返中丢失');
+      expect(adRow.expiresAt?.month, 12);
 
       // 设置也要带过去
       expect(parsed.settings.aggregateMode, isTrue);
@@ -131,16 +149,32 @@ void main() {
         throwsA(isA<BackupFormatException>()),
       );
     });
+
+    test('旧格式备份（屏蔽词是纯字符串）仍能解析，expiresAt 当作永久', () {
+      const legacy =
+          '{"format":"filterflow-backup","version":1,'
+          '"exportedAt":"2026-01-01T00:00:00","settings":{},'
+          '"dataSources":[],"plugins":[],"blockedKeywords":["广告","垃圾"]}';
+      final backup = BackupService.parse(legacy);
+      expect(backup.blockedKeywords.length, 2);
+      expect(backup.blockedKeywords.first.word, '广告');
+      expect(
+        backup.blockedKeywords.first.expiresAt,
+        isNull,
+        reason: '旧格式没有过期字段，应安全降级为永久屏蔽',
+      );
+    });
   });
 
   group('导入模式', () {
-    test('合并导入：同 id 覆盖、新 id 追加、屏蔽词去重', () async {
-      // 本地已有：源 A（老配置）+ 屏蔽词"广告"
+    test('合并导入：同 id 覆盖、新 id 追加、屏蔽词去重并覆盖过期时间', () async {
+      // 本地已有：源 A（老配置）+ 屏蔽词"广告"（2026-01 到期）
       final a = _rssConfig('a', name: '老名字');
       await db.upsertDataSource(a);
-      await db.addBlockedKeywords(['广告']);
+      await db.addBlockedKeyword('广告', expiresAt: DateTime.utc(2026, 1, 1));
 
-      // 备份里：源 A（新名字，应覆盖）+ 源 B（新，应追加）+ 屏蔽词"广告"（重复，忽略）
+      // 备份里：源 A（新名字，应覆盖）+ 源 B（新，应追加）
+      // + 屏蔽词"广告"（已有，应覆盖过期时间）+ "垃圾"（新，应新增）
       final backup = AppBackup(
         version: kBackupVersion,
         exportedAt: DateTime.now(),
@@ -153,7 +187,13 @@ void main() {
           BackupDataSourceEntry(config: _rssConfig('b'), sortOrder: 1),
         ],
         plugins: const [],
-        blockedKeywords: ['广告', '垃圾'],
+        blockedKeywords: [
+          BackupBlockedKeywordEntry(
+            word: '广告',
+            expiresAt: DateTime.utc(2026, 6, 1),
+          ),
+          BackupBlockedKeywordEntry(word: '垃圾'),
+        ],
       );
 
       final result = await service.importBackup(backup, mode: ImportMode.merge);
@@ -161,14 +201,19 @@ void main() {
       expect(result.updatedSources, 1, reason: '源A 同名应被覆盖');
       expect(result.addedSources, 1, reason: '源B 应作为新源追加');
       expect(result.addedKeywords, 1, reason: '只有"垃圾"是新增的');
+      expect(result.updatedKeywords, 1, reason: '"广告"已存在，过期时间应被备份覆盖');
 
       final sources = await db.getAllDataSources();
       final names = {for (final c in sources) c.id: c.name};
       expect(names['a'], '新名字', reason: '源A 名字应被覆盖成新名字');
       expect(names.containsKey('b'), isTrue);
 
-      final keywords = await db.getAllBlockedKeywords();
-      expect(keywords, containsAll(['广告', '垃圾']));
+      final keywordRows = await db.getAllBlockedKeywordEntries();
+      final words = keywordRows.map((e) => e.word).toList();
+      expect(words, containsAll(['广告', '垃圾']));
+      // 合并后"广告"的过期时间应以备份里的为准（6 月，而非本地的 1 月）
+      final adRow = keywordRows.firstWhere((e) => e.word == '广告');
+      expect(adRow.expiresAt?.month, 6, reason: '合并应覆盖过期时间');
     });
 
     test('合并导入时新源 Tab 序号不冲突：接续在现有最大序号之后', () async {
@@ -185,7 +230,7 @@ void main() {
           BackupDataSourceEntry(config: _rssConfig('c'), sortOrder: 1),
         ],
         plugins: const [],
-        blockedKeywords: const [],
+        blockedKeywords: const <BackupBlockedKeywordEntry>[],
       );
 
       await service.importBackup(backup, mode: ImportMode.merge);
@@ -215,7 +260,12 @@ void main() {
           ),
         ],
         plugins: [BackupPluginEntry(plugin: _plugin('p1'), sortOrder: 3)],
-        blockedKeywords: ['新词'],
+        blockedKeywords: [
+          BackupBlockedKeywordEntry(
+            word: '新词',
+            expiresAt: DateTime.utc(2026, 9, 9),
+          ),
+        ],
       );
 
       final result = await service.importBackup(
@@ -229,11 +279,13 @@ void main() {
 
       final sources = await db.getAllDataSources();
       final plugins = await db.getAllInstalledPlugins();
-      final keywords = await db.getAllBlockedKeywords();
+      final keywordRows = await db.getAllBlockedKeywordEntries();
       // 旧的必须被清掉
       expect(sources.map((c) => c.id), equals(['a']));
       expect(plugins.map((p) => p.id), equals(['p1']));
-      expect(keywords, equals(['新词']));
+      expect(keywordRows.map((e) => e.word), equals(['新词']));
+      // 覆盖导入要把过期时间也还原（9 月，而非本地旧的随意值）
+      expect(keywordRows.first.expiresAt?.month, 9, reason: '覆盖导入应原样还原屏蔽词过期时间');
 
       // 覆盖模式下要还原备份里存的交错 Tab 序号
       final orders = await db.getAllSortOrders();

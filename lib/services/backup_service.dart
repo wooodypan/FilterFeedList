@@ -31,12 +31,16 @@ class ImportResult {
   /// 新增的屏蔽词条数（本地已有的不会重复添加）
   final int addedKeywords;
 
+  /// 被更新过期时间的屏蔽词条数（备份里的词本地已有，但过期时间被备份覆盖）
+  final int updatedKeywords;
+
   const ImportResult({
     this.addedSources = 0,
     this.updatedSources = 0,
     this.addedPlugins = 0,
     this.updatedPlugins = 0,
     this.addedKeywords = 0,
+    this.updatedKeywords = 0,
   });
 
   /// 一句话摘要，直接展示在结果提示里。
@@ -47,6 +51,7 @@ class ImportResult {
     if (addedPlugins > 0) parts.add('新增插件 $addedPlugins 个');
     if (updatedPlugins > 0) parts.add('更新插件 $updatedPlugins 个');
     if (addedKeywords > 0) parts.add('新增屏蔽词 $addedKeywords 个');
+    if (updatedKeywords > 0) parts.add('更新屏蔽词过期时间 $updatedKeywords 个');
     if (parts.isEmpty) return '导入完成，内容与现有配置一致';
     return parts.join('，');
   }
@@ -69,7 +74,9 @@ class BackupService {
     // 三张表各读一次；读原始行（Row）而不是模型，因为 Tab 序号只在行上有
     final sourceRows = await _db.getAllDataSourceRows();
     final pluginRows = await _db.getAllPluginRows();
-    final keywords = await _db.getAllBlockedKeywords();
+    // 屏蔽词读"完整行"（含 expiresAt），而不是只取词面，
+    // 这样备份才能带上每条词的过期时间，导入后还原"定时解封"设置
+    final keywordRows = await _db.getAllBlockedKeywordEntries();
 
     return AppBackup(
       version: kBackupVersion,
@@ -86,7 +93,10 @@ class BackupService {
             sortOrder: r.sortOrder,
           ),
       ],
-      blockedKeywords: keywords,
+      blockedKeywords: [
+        for (final r in keywordRows)
+          BackupBlockedKeywordEntry(word: r.word, expiresAt: r.expiresAt),
+      ],
     );
   }
 
@@ -149,7 +159,6 @@ class BackupService {
     final existingPluginIds = (await _db.getAllPluginRows())
         .map((r) => r.id)
         .toSet();
-    final existingKeywords = (await _db.getAllBlockedKeywords()).toSet();
 
     // 新增的源排到现有 Tab 的最后面，避免和已有编号撞车
     var nextOrder = await _nextAvailableOrder();
@@ -179,18 +188,37 @@ class BackupService {
       }
     }
 
-    // 屏蔽词：只补本地没有的（word 列有唯一约束，重复插入会被忽略）
-    final newKeywords = backup.blockedKeywords
-        .where((w) => !existingKeywords.contains(w))
-        .toList();
-    await _db.addBlockedKeywords(newKeywords);
+    // 屏蔽词：逐条处理，带回备份里的过期时间
+    // - 本地没有的词：新增（带备份里的 expiresAt）
+    // - 本地已有的词：用备份里的过期时间覆盖本地的。合并 = 备份优先，
+    //   这样"30 天后自动解封"这类设置也能从备份还原，计入 updatedKeywords
+    final existingKeywordRows = await _db.getAllBlockedKeywordEntries();
+    final existingKeywordWords = existingKeywordRows.map((e) => e.word).toSet();
+
+    var addedKeywords = 0;
+    var updatedKeywords = 0;
+    for (final entry in backup.blockedKeywords) {
+      if (existingKeywordWords.contains(entry.word)) {
+        // 词面不变（newWord 传同样的词），只更新过期时间
+        await _db.updateBlockedKeyword(
+          entry.word,
+          entry.word,
+          expiresAt: entry.expiresAt,
+        );
+        updatedKeywords++;
+      } else {
+        await _db.addBlockedKeyword(entry.word, expiresAt: entry.expiresAt);
+        addedKeywords++;
+      }
+    }
 
     return ImportResult(
       addedSources: addedSources,
       updatedSources: updatedSources,
       addedPlugins: addedPlugins,
       updatedPlugins: updatedPlugins,
-      addedKeywords: newKeywords.length,
+      addedKeywords: addedKeywords,
+      updatedKeywords: updatedKeywords,
     );
   }
 
@@ -209,7 +237,10 @@ class BackupService {
     for (final entry in backup.plugins) {
       await _db.upsertInstalledPlugin(entry.plugin, sortOrder: entry.sortOrder);
     }
-    await _db.addBlockedKeywords(backup.blockedKeywords);
+    // 屏蔽词：带过期时间逐条还原（clearAllBlockedKeywords 已清空，不会冲突）
+    for (final entry in backup.blockedKeywords) {
+      await _db.addBlockedKeyword(entry.word, expiresAt: entry.expiresAt);
+    }
 
     return ImportResult(
       addedSources: backup.dataSources.length,

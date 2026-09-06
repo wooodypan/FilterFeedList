@@ -134,6 +134,55 @@ class BackupPluginEntry {
   }
 }
 
+/// 备份里的一条屏蔽词：词面 + 可选的过期时间。
+///
+/// [expiresAt] 为 null 表示"永久屏蔽"，与数据库里 expiresAt 列 NULL 一个意思。
+///
+/// 之所以单独成一个类（而不是像以前那样只用 `String`），是因为屏蔽词表
+/// 后来加了 [BlockedKeywords.expiresAt] 列：备份如果不带这个时间，导入后
+/// "30 天后自动解封"这类设置就会丢，全部变成永久屏蔽。
+class BackupBlockedKeywordEntry {
+  final String word;
+  final DateTime? expiresAt;
+
+  const BackupBlockedKeywordEntry({required this.word, this.expiresAt});
+
+  Map<String, dynamic> toJson() => {
+    'word': word,
+    // 时间统一存 ISO8601 字符串；永久屏蔽存 null，导入时还原成"无过期"
+    'expiresAt': expiresAt?.toIso8601String(),
+  };
+
+  /// 反序列化，同时兼容两种历史格式：
+  /// - 旧版备份：屏蔽词是纯字符串，如 `"广告"`（expiresAt 当作永久）
+  /// - 新版备份：屏蔽词是对象，如 `{"word":"广告","expiresAt":null}`
+  ///
+  /// 单条不合法（不是字符串也不是对象 / 没词面）时返回 null，调用方跳过它，
+  /// 不会让整份备份导入失败。
+  static BackupBlockedKeywordEntry? tryFromJson(Object? raw) {
+    String? word;
+    if (raw is String) {
+      word = raw; // 旧格式：整条就是词面
+    } else if (raw is Map<String, dynamic>) {
+      final w = raw['word'];
+      if (w is String) word = w; // 新格式：从 word 字段取
+    }
+
+    if (word == null || word.trim().isEmpty) return null;
+
+    // 只有新格式的对象才可能有 expiresAt；旧格式一律当作永久
+    DateTime? expiresAt;
+    if (raw is Map<String, dynamic>) {
+      final rawExp = raw['expiresAt'];
+      if (rawExp is String) {
+        expiresAt = DateTime.tryParse(rawExp);
+      }
+    }
+
+    return BackupBlockedKeywordEntry(word: word.trim(), expiresAt: expiresAt);
+  }
+}
+
 /// 一份完整的 App 配置备份。
 ///
 /// 覆盖四类用户数据：
@@ -151,7 +200,7 @@ class AppBackup {
   final FeedSettings settings;
   final List<BackupDataSourceEntry> dataSources;
   final List<BackupPluginEntry> plugins;
-  final List<String> blockedKeywords;
+  final List<BackupBlockedKeywordEntry> blockedKeywords;
 
   const AppBackup({
     required this.version,
@@ -185,7 +234,7 @@ class AppBackup {
     },
     'dataSources': dataSources.map((e) => e.toJson()).toList(),
     'plugins': plugins.map((e) => e.toJson()).toList(),
-    'blockedKeywords': blockedKeywords,
+    'blockedKeywords': blockedKeywords.map((e) => e.toJson()).toList(),
   };
 
   /// 从 JSON 反序列化。
@@ -272,15 +321,15 @@ class AppBackup {
       }
     }
 
-    // 屏蔽词：只收非空字符串，顺便去重（用 Set 天然去重）
-    final keywords = <String>{};
+    // 屏蔽词：兼容旧格式（纯字符串）和新格式（{word,expiresAt} 对象），
+    // 按词面去重（用 Set 记录已出现的词，重复的条目直接跳过）
+    final keywords = <BackupBlockedKeywordEntry>[];
+    final seenWords = <String>{};
     final kwRaw = json['blockedKeywords'];
     if (kwRaw is List) {
       for (final item in kwRaw) {
-        if (item is String) {
-          final w = item.trim();
-          if (w.isNotEmpty) keywords.add(w);
-        }
+        final entry = BackupBlockedKeywordEntry.tryFromJson(item);
+        if (entry != null && seenWords.add(entry.word)) keywords.add(entry);
       }
     }
 
@@ -290,7 +339,7 @@ class AppBackup {
       settings: settings,
       dataSources: dataSources,
       plugins: plugins,
-      blockedKeywords: keywords.toList(),
+      blockedKeywords: keywords,
     );
   }
 }
