@@ -170,12 +170,12 @@ class TranslatorService {
       }
       return result;
     } on DioException catch (e) {
-      // 翻译失败不阻断信息流：回退原文并打日志
-      debugPrint('[TranslatorService] 翻译失败，回退原文：$e');
-      return List<String>.from(texts);
+      // 翻译失败不阻断信息流：返回空数组
+      debugPrint('[TranslatorService] 翻译失败，返回空数组：$e');
+      return <String>[];
     } catch (e) {
-      debugPrint('[TranslatorService] 翻译失败，回退原文：$e');
-      return List<String>.from(texts);
+      debugPrint('[TranslatorService] 翻译失败，回退空数组：$e');
+      return List<String>.empty();
     }
   }
 

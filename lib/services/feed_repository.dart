@@ -85,13 +85,16 @@ class FeedRepository {
       config.fieldMapping?.summaryPath,
     );
     if (marker != null && articles.isNotEmpty) {
-      articles = await _translateField(
+      final res = await _translateField(
         articles,
         sourceField: marker.field,
         targetField: 'summary',
         from: marker.from,
         to: marker.to,
       );
+      if (res.isNotEmpty) {
+        articles = res;
+      }
     }
 
     return articles;
@@ -115,6 +118,9 @@ class FeedRepository {
       from: from,
       to: to,
     );
+    if (translated.isEmpty) {
+      return [];
+    }
     return [
       for (var i = 0; i < articles.length; i++)
         _writeField(articles[i], targetField, translated[i]),
