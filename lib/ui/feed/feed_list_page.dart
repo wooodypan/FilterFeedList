@@ -30,8 +30,8 @@ class FeedListPage extends ConsumerWidget {
     final tabOrders = ref.watch(sourceSortOrdersProvider);
 
     return Scaffold(
-      // 白底风格：整页背景固定白色，和扁平列表行保持一致
-      backgroundColor: Colors.white,
+      // 不写死背景色，交给主题的 scaffoldBackgroundColor：
+      // 这样切到深色模式时整页会自动变深（写死 Colors.white 会是一片白）。
       appBar: AppBar(
         title: const Text('漏斗阅读'),
         actions: [
@@ -383,6 +383,10 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
       return const Center(child: Text('暂无内容（可能都被屏蔽词过滤了）'));
     }
 
+    // 悬浮按钮的配色取自主题：底色用 surfaceContainerHighest（浅色≈浅灰、
+    // 深色≈深灰），描边用 outlineVariant。写死白底+浅灰边在深色模式下会很突兀。
+    final scheme = Theme.of(context).colorScheme;
+
     return Stack(
       children: [
         RefreshIndicator(
@@ -395,7 +399,10 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
             // 行之间的 0.5px 分割线：高度 0.5 逻辑像素，在高清屏上就是一条细线
             separatorBuilder: (context, index) => Container(
               height: 0.5,
-              color: const Color(0xFFE5E5E5), // 浅灰分割线，白色行底上刚好可见
+              // 用主题的分割线色（浅色模式是淡灰、深色模式是淡白），
+              // 两个模式下都能看得出分界，又不会太抢眼。
+              // 之前这里写死了纯白 —— 白底上等于没有分割线，深色底上则变成刺眼的亮线。
+              color: Theme.of(context).dividerColor,
             ),
             itemBuilder: (context, index) {
               // 最后一条：加载更多指示器
@@ -437,10 +444,10 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
             child: IgnorePointer(
               ignoring: !_showBackToTop,
               child: Material(
-                // 白底 + 淡灰描边的圆形按钮，和列表的扁平白风格一致（不用阴影）
-                color: Colors.white,
-                shape: const CircleBorder(
-                  side: BorderSide(color: Color(0xFFE0E0E0)),
+                // 底色 + 描边都取自主题，跟着深浅模式自动变
+                color: scheme.surfaceContainerHighest,
+                shape: CircleBorder(
+                  side: BorderSide(color: scheme.outlineVariant),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: IconButton(

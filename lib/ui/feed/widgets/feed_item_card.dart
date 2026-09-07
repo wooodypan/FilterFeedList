@@ -5,6 +5,13 @@ import '../../../models/feed_article.dart';
 import '../../../services/image_cache_manager.dart';
 import '../text_explosion_sheet.dart';
 
+/// "已读"文字用的暗色：在主题前景色基础上调透明到 45%。
+///
+/// 用主题色 + 透明度，而不是写死 Colors.grey —— 后者在深色模式下
+/// （深底 + 中灰字）对比度不够，看着发虚。
+Color _dimmed(ThemeData theme) =>
+    theme.colorScheme.onSurface.withValues(alpha: 0.45);
+
 /// 信息流里的单条卡片：左侧缩略图 + 右侧标题/摘要/元信息。
 ///
 /// 三种手势，互不冲突：
@@ -85,12 +92,12 @@ class _FeedItemCardState extends State<FeedItemCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    // 扁平白色行样式：不再用 Card（无边框圆角、无阴影、无外边距），
+    // 扁平行样式：不再用 Card（无边框圆角、无阴影、无外边距），
     // 行与行之间的分隔交给列表页的 0.5px 分割线处理。
-    // 最外层套 Material 是为了把行背景固定成白色
-    // （即使页面背景不是白色，这一行也保持白底）。
+    // 背景用主题里的 surface（浅色模式下是白、深色模式下是深灰），
+    // 【不要写死 Colors.white】——否则深色模式下这里会是一块刺眼的白条。
     return Material(
-      color: Colors.white,
+      color: theme.colorScheme.surface,
       // 点击和长按由同一个 GestureDetector 承担：
       // - onTap：单击打开详情
       // - onLongPressStart：长按，按落点决定弹大爆炸还是弹菜单
@@ -123,9 +130,12 @@ class _FeedItemCardState extends State<FeedItemCard> {
                     Text(
                       key: _titleKey,
                       widget.article.title,
-                      // 已读就把标题染灰，一眼区分"读过的"和"没读的"
+                      // 已读就把标题调暗，一眼区分"读过的"和"没读的"。
+                      // 用 onSurface.withValues(alpha:) 而不是写死 Colors.grey：
+                      // 前者在深色模式下会自动变成"暗一点的白"，
+                      // 写死灰色则可能在深底上看不清。
                       style: theme.textTheme.titleMedium?.copyWith(
-                        color: widget.isRead ? Colors.grey : null,
+                        color: widget.isRead ? _dimmed(theme) : null,
                         fontWeight: FontWeight.normal, // 常规（非粗体）
                       ),
                       maxLines: 2,
@@ -137,7 +147,7 @@ class _FeedItemCardState extends State<FeedItemCard> {
                         widget.article.summary!,
                         // 已读时摘要也跟着变浅，整体灰度更统一
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: widget.isRead ? Colors.grey : null,
+                          color: widget.isRead ? _dimmed(theme) : null,
                           fontWeight: FontWeight.normal, // 常规（非粗体）
                         ),
                         maxLines: 2,
@@ -170,6 +180,25 @@ class _Thumb extends StatelessWidget {
     // 注意：本 widget 只在 URL 非空时被调用（FeedItemCard 已先判断非空），
     // 所以这里无需再处理空 URL，直接交给缓存图片组件加载即可。
 
+    // 占位块的颜色取自主题（浅色=浅灰、深色=深灰），
+    // 写死 Colors.black12 的话深色模式下会和背景糊成一片。
+    final placeholderColor = Theme.of(
+      context,
+    ).colorScheme.surfaceContainerHighest;
+
+    // 占位块：图片没下载完 / 下载失败时都用它占住位置，避免布局跳动
+    Widget placeholder({Widget? child}) => SizedBox(
+      width: size,
+      height: size,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: placeholderColor,
+          borderRadius: radius,
+        ),
+        child: child,
+      ),
+    );
+
     return ClipRRect(
       borderRadius: radius,
       child: CachedNetworkImage(
@@ -182,27 +211,10 @@ class _Thumb extends StatelessWidget {
         cacheManager: FeedImageCacheManager.instance,
         // 占位：图片还没下载完时先画一个灰色圆角块占住位置。
         // （之前这里有个转圈圈，按需求去掉了 —— 单纯占位即可，不挡布局。）
-        placeholder: (context, url) => const SizedBox(
-          width: size,
-          height: size,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.black12,
-              borderRadius: radius,
-            ),
-          ),
-        ),
+        placeholder: (context, url) => placeholder(),
         // 失败：占位图标
-        errorWidget: (context, url, error) => const SizedBox(
-          width: size,
-          height: size,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: Colors.black12,
-              borderRadius: radius,
-            ),
-            child: Icon(Icons.broken_image, color: Colors.grey),
-          ),
+        errorWidget: (context, url, error) => placeholder(
+          child: const Icon(Icons.broken_image, color: Colors.grey),
         ),
       ),
     );
@@ -217,6 +229,7 @@ class _Meta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final parts = <String>[];
     if (article.author?.isNotEmpty == true) parts.add(article.author!);
     if (article.publishTime?.isNotEmpty == true)
@@ -226,8 +239,9 @@ class _Meta extends StatelessWidget {
     return Text(
       parts.join('  ·  '),
       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        // 已读时元信息也淡一点；未读时保持原本的灰色
-        color: isRead ? Colors.grey.shade400 : Colors.grey,
+        // 未读用主题的次要文字色（onSurfaceVariant），已读再调暗一档。
+        // 不写死 Colors.grey：深色模式下灰色字在深底上会发虚。
+        color: isRead ? _dimmed(theme) : theme.colorScheme.onSurfaceVariant,
         fontWeight: FontWeight.normal, // 常规（非粗体）
       ),
       maxLines: 1,

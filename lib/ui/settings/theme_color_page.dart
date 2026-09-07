@@ -109,7 +109,9 @@ class ThemeColorPage extends ConsumerWidget {
           Text(
             '提示：这里选的是"种子色"，Flutter 会用它自动推导出主色、'
             '次要色、卡片背景等一整套配色，不需要逐个调。',
-            style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ],
       ),

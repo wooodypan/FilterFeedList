@@ -108,6 +108,23 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
+/// 按「种子色 + 明暗」生成一套完整主题。
+///
+/// colorSchemeSeed：给 Material3 一个"种子色"，Flutter 自动推导出
+/// 完整的一套配色（primary / secondary / 容器色 / 各层背景……）。
+/// 所以用户在主题色页只选一个颜色，全 App 的观感就整体跟着变。
+///
+/// [brightness] 决定这套配色是给浅色还是深色用的——同一个种子色，
+/// 传 Brightness.dark 时 Flutter 会自动把主色调亮，保证在黑底上够醒目
+/// （深色模式里主色太暗会看不见，这是 Material3 帮我们处理好的）。
+ThemeData _buildTheme(Color seed, Brightness brightness) {
+  return ThemeData(
+    useMaterial3: true,
+    colorSchemeSeed: seed,
+    brightness: brightness,
+  );
+}
+
 /// App 根组件。
 class MyApp extends ConsumerWidget {
   const MyApp({super.key});
@@ -139,13 +156,15 @@ class MyApp extends ConsumerWidget {
     return MaterialApp.router(
       title: '漏斗阅读',
       debugShowCheckedModeBanner: false,
-      // colorSchemeSeed：给 Material3 一个"种子色"，Flutter 自动推导出
-      // 完整的一套配色（primary / secondary / 容器色 / 各层背景……）。
-      // 所以用户在主题色页只选一个颜色，全 App 的观感就整体跟着变。
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: settings.themeColor,
-      ),
+      // 外观模式：跟随系统 / 强制浅色 / 强制深色（用户在设置页的「外观」里选）。
+      // ThemeMode.system 时 Flutter 会自己监听系统主题变化并切换，不用我们管。
+      themeMode: settings.themeMode,
+      // 浅色主题。
+      theme: _buildTheme(settings.themeColor, Brightness.light),
+      // 深色主题：和浅色用同一个种子色，只是亮度反过来。
+      // 两套都给了，Flutter 才能按 themeMode 在它们之间切换；
+      // 少了 darkTheme 的话，即使设成 ThemeMode.dark 也只会显示浅色。
+      darkTheme: _buildTheme(settings.themeColor, Brightness.dark),
       routerConfig: router,
       // builder 里包一层 MediaQuery，把"字体缩放"作用到全 App 所有文字上。
       // 这样改一处、列表标题/正文/设置页一起变，和微信的字体设置一个效果。

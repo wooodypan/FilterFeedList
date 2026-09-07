@@ -298,7 +298,8 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Colors.grey[400],
+                  // 用主题色而不是写死 grey[400]：深色模式下灰色横条会看不清
+                  color: theme.colorScheme.onSurfaceVariant,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -310,8 +311,9 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
             const SizedBox(height: 2),
             Text(
               '单击或滑动连选后会自动填入下方输入框，可在输入框再次修改（如补空格）',
+              // 用主题的次要文字色，深浅两种模式下对比度都合适
               style: theme.textTheme.bodySmall?.copyWith(
-                color: Colors.grey[600],
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 12),
@@ -321,7 +323,8 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
               width: double.infinity,
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                // 浅灰底 → 用主题色；写死 grey[100] 在深色模式下是一块亮白斑
+                color: theme.colorScheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -373,14 +376,14 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
                 Text(
                   _selected.isEmpty ? '未选择词块' : '已选 ${_selected.length} 个词块',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const Spacer(),
                 Text(
                   '屏蔽时长',
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -389,10 +392,9 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
                   // 去掉下拉框默认的下划线，让它更像一个「选项」而不是输入控件
                   underline: const SizedBox.shrink(),
                   isDense: true,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 12,
-                    fontWeight: FontWeight.normal,
+                  // 文字色跟随主题（写死 Colors.black 在深色模式下是黑字黑底看不见）
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface,
                   ),
                   items: [
                     for (final d in _durationChoices)
@@ -468,10 +470,16 @@ class _TokenChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: selected ? theme.colorScheme.primary : Colors.grey.shade200,
+        // 未选中的词块：底色和描边都取自主题（写死 grey[200]/grey[300]
+        // 在深色模式下会变成一块亮白的药丸，非常扎眼）
+        color: selected
+            ? theme.colorScheme.primary
+            : theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: selected ? theme.colorScheme.primary : Colors.grey[300]!,
+          color: selected
+              ? theme.colorScheme.primary
+              : theme.colorScheme.outlineVariant,
         ),
       ),
       child: Text(

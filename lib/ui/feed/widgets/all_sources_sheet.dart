@@ -229,14 +229,16 @@ class _SourceChip extends StatelessWidget {
       // 内边距留一点，避免长名称贴边；超出宽度用省略号截断
       padding: const EdgeInsets.symmetric(horizontal: 6),
       decoration: BoxDecoration(
-        // 普通项白底；选中项给一层浅色底，配合描边区分
-        color: isCurrent ? theme.colorScheme.primaryContainer : Colors.white,
+        // 普通项用主题底色（不写死 Colors.white，否则深色模式下是一块白斑）；
+        // 选中项给一层主题浅色底，配合描边区分
+        color: isCurrent
+            ? theme.colorScheme.primaryContainer
+            : theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          // 普通项：淡灰色边框；选中项：主题色边框
-          color: isCurrent
-              ? theme.colorScheme.primary
-              : const Color(0xFFE0E0E0),
+          // 普通项：主题默认的分割线色（浅色=淡灰、深色=淡白）；
+          // 选中项：主题色边框
+          color: isCurrent ? theme.colorScheme.primary : theme.dividerColor,
           width: 1,
         ),
       ),

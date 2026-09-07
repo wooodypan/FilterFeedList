@@ -52,7 +52,11 @@ class SettingsPage extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: settings.themeColor,
                     shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black12),
+                    // 描边用主题的 outlineVariant：深色模式下也能看出圆点边界
+                    // （写死 Colors.black12 在深底上等于没有描边）
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -60,6 +64,14 @@ class SettingsPage extends ConsumerWidget {
               ],
             ),
             onTap: () => context.push('/settings/theme'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.brightness_6),
+            title: const Text('外观设置'),
+            // 副标题直接显示当前选的是哪一种，不用点进去也知道
+            subtitle: Text('当前：${_themeModeLabel(settings.themeMode)}'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => _pickThemeMode(context, ref, settings.themeMode),
           ),
           ListTile(
             leading: const Icon(Icons.backup),
@@ -103,6 +115,68 @@ class SettingsPage extends ConsumerWidget {
                 _pickImageCacheDays(context, ref, settings.imageCacheDays),
           ),
         ],
+      ),
+    );
+  }
+
+  /// 把外观模式翻译成人话（给设置页副标题和弹层用）。
+  static String _themeModeLabel(ThemeMode mode) {
+    switch (mode) {
+      case ThemeMode.system:
+        return '跟随系统';
+      case ThemeMode.light:
+        return '浅色模式';
+      case ThemeMode.dark:
+        return '深色模式';
+    }
+  }
+
+  /// 弹出底部菜单让用户选外观模式：跟随系统 / 浅色 / 深色。
+  /// 选中后立刻保存，App 根组件会重建整套主题，无需重启。
+  void _pickThemeMode(BuildContext context, WidgetRef ref, ThemeMode current) {
+    // 三个选项固定顺序，和下面的图标一一对应
+    const modes = <ThemeMode>[
+      ThemeMode.system,
+      ThemeMode.light,
+      ThemeMode.dark,
+    ];
+    const icons = <IconData>[
+      Icons.brightness_auto, // 跟随系统
+      Icons.light_mode, // 浅色
+      Icons.dark_mode, // 深色
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  Text('外观设置', style: Theme.of(context).textTheme.titleMedium),
+                ],
+              ),
+            ),
+            // 三个选项平铺，当前选中的打勾
+            for (int i = 0; i < modes.length; i++)
+              ListTile(
+                leading: Icon(icons[i]),
+                title: Text(_themeModeLabel(modes[i])),
+                trailing: modes[i] == current ? const Icon(Icons.check) : null,
+                onTap: () {
+                  ref
+                      .read(feedSettingsProvider.notifier)
+                      .setThemeMode(modes[i]);
+                  Navigator.of(sheetContext).pop();
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }

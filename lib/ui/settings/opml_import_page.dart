@@ -318,8 +318,11 @@ class _SummaryBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final invalid = result.invalid.length;
+    // 用主题主色而不是写死 Colors.teal：用户在「主题色」里改了颜色后，
+    // 这个提示条会跟着变，不会出现"整页是紫色、就这一条是青绿"的割裂感
+    final primary = Theme.of(context).colorScheme.primary;
     return _Banner(
-      color: Colors.teal,
+      color: primary,
       icon: Icons.check_circle_outline,
       child: Text(
         '解析到 ${result.valid.length} 个订阅'
@@ -360,14 +363,14 @@ class _CandidateTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 次要文字色取自主题（写死 grey 在深色模式下对比度不够）
+    final muted = Theme.of(context).colorScheme.onSurfaceVariant;
     final feed = candidate.feed;
     return CheckboxListTile(
       // 重复项用淡一点的颜色，提示"它已经存在了"
       title: Text(
         feed.name,
-        style: candidate.duplicate
-            ? TextStyle(color: Colors.grey.shade600)
-            : null,
+        style: candidate.duplicate ? TextStyle(color: muted) : null,
       ),
       subtitle: Text(
         feed.xmlUrl,
@@ -382,9 +385,9 @@ class _CandidateTile extends StatelessWidget {
         onChanged();
       },
       secondary: candidate.duplicate
-          ? const Tooltip(
+          ? Tooltip(
               message: '已存在相同地址的订阅',
-              child: Icon(Icons.copy_outlined, color: Colors.grey),
+              child: Icon(Icons.copy_outlined, color: muted),
             )
           : const Icon(Icons.rss_feed),
     );

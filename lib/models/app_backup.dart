@@ -18,6 +18,26 @@ const String kBackupFormat = 'filterflow-backup';
 /// 就把这个数字 +1，并在 [AppBackup.fromJson] 里针对老版本写兼容分支。
 const int kBackupVersion = 1;
 
+/// 把备份里的外观模式下标还原成 [ThemeMode]。
+///
+/// 存的是 `ThemeMode.index`（system=0 / light=1 / dark=2）。
+/// 按下标显式映射而不是 `ThemeMode.values[i]`，是为了防止以后
+/// Flutter 调整枚举顺序时把"深色"读成"浅色"这种错位。
+/// 非法值或老备份没这个字段 → 跟随系统。
+ThemeMode _decodeThemeMode(Object? raw) {
+  if (raw is int) {
+    switch (raw) {
+      case 1:
+        return ThemeMode.light;
+      case 2:
+        return ThemeMode.dark;
+      case 0:
+        return ThemeMode.system;
+    }
+  }
+  return ThemeMode.system;
+}
+
 /// 备份里的一条数据源：配置本体 + 它在信息流顶部 Tab 里的排序序号。
 class BackupDataSourceEntry {
   final DataSourceConfig config;
@@ -231,6 +251,8 @@ class AppBackup {
       'hapticFeedback': settings.hapticFeedback,
       // 主题色：Color 不能直接进 JSON，存它的整数值（0xAARRGGBB）
       'themeColor': settings.themeColor.toARGB32(),
+      // 外观模式：存枚举下标（system=0 / light=1 / dark=2）
+      'themeMode': settings.themeMode.index,
     },
     'dataSources': dataSources.map((e) => e.toJson()).toList(),
     'plugins': plugins.map((e) => e.toJson()).toList(),
@@ -299,6 +321,10 @@ class AppBackup {
                         ((settingsRaw['themeColor'] as int) & 0x00FFFFFF),
                   )
                 : Colors.teal,
+            // 外观模式：老备份没有这个字段时跟随系统。
+            // 这里也按下标显式映射，不直接 ThemeMode.values[i]，
+            // 避免枚举顺序变动导致"深色被读成浅色"这类错位。
+            themeMode: _decodeThemeMode(settingsRaw['themeMode']),
           )
         : const FeedSettings();
 

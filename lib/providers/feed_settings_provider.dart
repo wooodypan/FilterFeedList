@@ -33,6 +33,12 @@ class FeedSettings {
   /// 各层级背景……），所以只改这一个值，全 App 的观感就跟着变。
   final Color themeColor;
 
+  /// 外观模式（亮/暗）：跟随系统、强制浅色、强制深色。
+  ///
+  /// 默认 [ThemeMode.system]：系统切成深色时 App 自动跟着变，
+  /// 用户不改设置也能享受到，是现在 App 的通行做法。
+  final ThemeMode themeMode;
+
   const FeedSettings({
     this.aggregateMode = false,
     this.showThumb = true,
@@ -40,6 +46,7 @@ class FeedSettings {
     this.imageCacheDays = FeedImageCacheManager.defaultDays,
     this.hapticFeedback = true,
     this.themeColor = Colors.teal,
+    this.themeMode = ThemeMode.system,
   });
 
   FeedSettings copyWith({
@@ -49,6 +56,7 @@ class FeedSettings {
     int? imageCacheDays,
     bool? hapticFeedback,
     Color? themeColor,
+    ThemeMode? themeMode,
   }) {
     return FeedSettings(
       aggregateMode: aggregateMode ?? this.aggregateMode,
@@ -57,6 +65,7 @@ class FeedSettings {
       imageCacheDays: imageCacheDays ?? this.imageCacheDays,
       hapticFeedback: hapticFeedback ?? this.hapticFeedback,
       themeColor: themeColor ?? this.themeColor,
+      themeMode: themeMode ?? this.themeMode,
     );
   }
 }
@@ -77,6 +86,7 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
   static const _kFontScale = 'font_scale';
   static const _kHapticFeedback = 'haptic_feedback';
   static const _kThemeColor = 'theme_color';
+  static const _kThemeMode = 'theme_mode';
   // 图片缓存天数的 key 直接用缓存管理器里定义的常量，两边共用一份
   static const _kImageCacheDays = FeedImageCacheManager.kImageCacheDaysPrefKey;
 
@@ -94,6 +104,9 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
       // 主题色：存的是 Color 的整数值（0xAARRGGBB）。老版本没存过就用默认青绿。
       // 顺手把透明通道抹掉（强制不透明），避免异常数据导致整套配色发灰。
       themeColor: _decodeColor(prefs.getInt(_kThemeColor)),
+      // 外观模式：存的是 0/1/2（对应 ThemeMode 的三个值）。
+      // 老版本没存过 → 跟随系统。
+      themeMode: _decodeThemeMode(prefs.getInt(_kThemeMode)),
     );
   }
 
@@ -139,6 +152,13 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
     state = state.copyWith(themeColor: v);
   }
 
+  /// 设置外观模式（跟随系统 / 浅色 / 深色），立即生效。
+  Future<void> setThemeMode(ThemeMode v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kThemeMode, v.index);
+    state = state.copyWith(themeMode: v);
+  }
+
   /// 一次性写入整份设置（导入备份时用：备份里的开关要整体还原，逐项 set 会多写好几次）。
   Future<void> apply(FeedSettings settings) async {
     final prefs = await SharedPreferences.getInstance();
@@ -148,6 +168,7 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
     await prefs.setInt(_kImageCacheDays, settings.imageCacheDays);
     await prefs.setBool(_kHapticFeedback, settings.hapticFeedback);
     await prefs.setInt(_kThemeColor, settings.themeColor.toARGB32());
+    await prefs.setInt(_kThemeMode, settings.themeMode.index);
     state = settings;
   }
 
@@ -159,5 +180,25 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
   static Color _decodeColor(int? value) {
     if (value == null) return Colors.teal;
     return Color(0xFF000000 | (value & 0x00FFFFFF));
+  }
+
+  /// 把存进 SharedPreferences 的整数还原成 [ThemeMode]。
+  ///
+  /// 存的是 `ThemeMode.index`（system=0、light=1、dark=2），
+  /// 但**不能直接写 `ThemeMode.values[i]`** —— 万一以后 Flutter 调整了
+  /// 枚举顺序或加新值，老数据就会错位（比如把"深色"读成"浅色"）。
+  /// 所以这里显式按 index 映射，并给非法值兜底成"跟随系统"。
+  static ThemeMode _decodeThemeMode(int? index) {
+    switch (index) {
+      case 1:
+        return ThemeMode.light;
+      case 2:
+        return ThemeMode.dark;
+      case 0:
+        return ThemeMode.system;
+      default:
+        // 没存过（老用户）或数值不合法 → 跟随系统，最安全的默认
+        return ThemeMode.system;
+    }
   }
 }

@@ -223,21 +223,28 @@ class _PreviewSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 提示块配色走主题（errorContainer / primaryContainer）：
+    // 写死 red.shade50 这类浅色底在深色模式下会变成一块刺眼的亮白斑
+    final scheme = Theme.of(context).colorScheme;
+
     if (error != null) {
       return Container(
         margin: const EdgeInsets.only(top: 16),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.red.shade50,
-          border: Border.all(color: Colors.red.shade200),
+          color: scheme.errorContainer,
+          border: Border.all(color: scheme.error),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               '解析失败',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: scheme.error,
+              ),
             ),
             const SizedBox(height: 6),
             Text(error!, style: const TextStyle(fontSize: 12)),
@@ -251,8 +258,8 @@ class _PreviewSection extends StatelessWidget {
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.green.shade50,
-        border: Border.all(color: Colors.green.shade200),
+        color: scheme.primaryContainer,
+        border: Border.all(color: scheme.primary),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
