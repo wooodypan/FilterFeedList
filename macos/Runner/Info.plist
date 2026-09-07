@@ -28,5 +28,21 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- 自定义 URL Scheme：让浏览器里的 filterread://... 能唤起本 App（同 iOS）。
+	     方便在 Mac 上直接调试深链：终端执行
+	     open "filterread://addsouce?type=plugin&name=ifanr&url=https://xxx/plugin.js" -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.filterflow.applinks</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>filterread</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -38,11 +38,31 @@ class RssFeedRepository {
           responseType: ResponseType.plain,
           headers: {
             'Accept':
-                'application/rss+xml, application/atom+xml, application/xml, */*',
+            'application/rss+xml, application/atom+xml, application/xml;q=0.9, text/xml;q=0.9, */*;q=0.8',
+            // 伪装成桌面 Chrome：很多站点（如 linux.do）架在 Cloudflare 后面，
+            // 会按 User-Agent 拦截非浏览器流量——dart:io 默认的 "Dart/x.x"
+            // UA 直接吃 403。带上浏览器 UA 是抓 RSS 的基本礼仪。
+            'User-Agent':
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) '
+                'AppleWebKit/537.36 (KHTML, like Gecko) '
+                'Chrome/124.0.0.0 Safari/537.36',
+            // 'upgrade-insecure-requests': '1',
+            'Accept-Language': 'zh-CN,zh;q=0.9',
           },
         ),
       );
     } on DioException catch (e) {
+      // 403 单独提示：多半是 Cloudflare 反爬把请求拦了，
+      // 纯 HTTP 客户端过不了 JS 挑战，只能换源或用站点的 API Key
+      final code = e.response?.statusCode;
+      if (code == 403) {
+        throw FeedFetchException(
+          '服务器拒绝访问（403）：该站点可能开启了 Cloudflare 反爬，'
+          '请尝试在浏览器里确认该 RSS 地址可打开；若浏览器正常但 App 一直 403，'
+          '说明该站点需要登录或 API Key 才能订阅',
+          cause: e,
+        );
+      }
       throw FeedFetchException('网络请求失败：${e.message}', cause: e);
     }
 

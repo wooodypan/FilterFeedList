@@ -68,12 +68,13 @@ class DeepLinkService {
 
   /// 开始监听深链。
   ///
-  /// 用 `allUriLinkStream` 而不是 `uriLinkStream`：前者 = "启动 App 的那条链接"
-  /// + "之后收到的链接"，一次性覆盖两种场景（冷启动唤起 / App 在后台被唤起），
-  /// 省得自己去拼 getInitialAppLink。
+  /// app_links 6.0.0 起 `allUriLinkStream` 改名为 `uriLinkStream`，
+  /// 但语义没变：仍是 "启动 App 的那条链接" + "之后收到的链接"，
+  /// 一次性覆盖两种场景（冷启动唤起 / App 在后台被唤起），
+  /// 省得自己去拼 getInitialLink。
   Future<void> start() async {
     final appLinks = AppLinks();
-    _sub = appLinks.allUriLinkStream.listen(
+    _sub = appLinks.uriLinkStream.listen(
       _handleUri,
       // 监听出错不能让 App 崩（比如某些平台不支持某个方法），打日志就行
       onError: (Object e) => debugPrint('[深链] 监听出错：$e'),

@@ -66,5 +66,21 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- 自定义 URL Scheme：让浏览器/其他 App 里的 filterread://... 能唤起本 App。
+	     用于"网页上一键安装插件"这类场景，由 lib/services/deep_link_service.dart 接收。
+	     注意：改这个 scheme 名字要同步改 Dart 里的 kAppScheme。 -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.filterflow.applinks</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>filterread</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

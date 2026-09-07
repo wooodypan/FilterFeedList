@@ -23,6 +23,12 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // 只保留 64 位 ARM架构（arm64-v8a）：去掉 x86 系列与 32 位 armeabi-v7a，减小 APK 体积
+        // 如果使用 flutter build apk --target-platform android-arm64 --release 打包不要开启此选项，会冲突
+        ndk {
+            //abiFilters += listOf("arm64-v8a")
+        }
     }
 
     buildTypes {
