@@ -24,12 +24,13 @@ class TextExplosionSheet {
   /// 弹出文字大爆炸。
   ///
   /// [title] 是要被分词原始文本（一般是文章标题）。
-  /// [onAdded] 在「批量添加选中词」成功后回调（用于关闭弹层 + 提示）；
-  ///   第一个参数是添加的词数（拼成短语后固定为 1），第二个参数是拼好的短语。
+  /// [onAdded] 在「添加屏蔽词」成功后回调（用于关闭弹层 + 提示）；
+  ///   第一个参数是添加的词数（固定为 1），第二个参数是拼好的短语，
+  ///   第三个参数是给用户看的提示文案（null = 不弹 SnackBar）。
   static Future<void> show(
     BuildContext context,
     String title, {
-    void Function(int count, String phrase)? onAdded,
+    void Function(int count, String phrase, String? message)? onAdded,
   }) {
     // 记下弹出前的页面 context，弹出后还能用它弹 SnackBar 提示
     final parentContext = context;
@@ -43,13 +44,14 @@ class TextExplosionSheet {
       ),
       builder: (sheetContext) => _TextExplosionContent(
         title: title,
-        onAdded: (count, phrase) {
+        onAdded: (count, phrase, message) {
           Navigator.of(sheetContext).pop();
-          onAdded?.call(count, phrase);
-          if (count > 0) {
+          onAdded?.call(count, phrase, message);
+          // 提示文案由内部按「新增 / 更新」组装好，这里只负责弹出来
+          if (message != null) {
             ScaffoldMessenger.of(
               parentContext,
-            ).showSnackBar(SnackBar(content: Text('已添加屏蔽词：$phrase')));
+            ).showSnackBar(SnackBar(content: Text(message)));
           }
         },
       ),
@@ -60,7 +62,7 @@ class TextExplosionSheet {
 /// 弹层内部的可变状态组件。
 class _TextExplosionContent extends ConsumerStatefulWidget {
   final String title;
-  final void Function(int count, String phrase) onAdded;
+  final void Function(int count, String phrase, String? message) onAdded;
 
   const _TextExplosionContent({required this.title, required this.onAdded});
 
@@ -259,19 +261,45 @@ class _TextExplosionContentState extends ConsumerState<_TextExplosionContent> {
   ///
   /// 内容既可能是词块拼出来、用户又手动改过的短语，
   /// 也可能是用户直接敲的自定义词——处理方式完全一样。
-  /// 添加成功后通过 widget.onAdded 通知外部：关闭弹层 + SnackBar 提示。
+  ///
+  /// 分两种情况：
+  /// - 词不在屏蔽列表里 → 新增，按所选时长入库；
+  /// - 词已经在列表里 → 只更新它的到期时间（用本次选的时长覆盖旧的），
+  ///   不删行重建——这样该词的「创建时间」等已有信息不会丢。
+  /// 两种情况的提示文案不同，组装好通过 widget.onAdded 传给外部弹出。
   Future<void> _addFromInput() async {
     final w = _inputController.text.trim();
     if (w.isEmpty) return;
+
     // 按当前选中的时长计算到期时间：0 = 永久（expiresAt 存 null），
     // 指定天数则从现在起往后推 N 天，到期后该词自动失效。
     final expiresAt = _selectedDays == 0
         ? null
         : DateTime.now().add(Duration(days: _selectedDays));
-    await ref
-        .read(blockedKeywordsProvider.notifier)
-        .add(w, expiresAt: expiresAt);
-    widget.onAdded(1, w);
+    // 提示文案里「时长」部分的描述：永久 or N 天
+    final durationText = _selectedDays == 0 ? '永久' : '$_selectedDays 天';
+
+    // 当前内存里的屏蔽词列表（provider 持有的），用来判断这个词是否已存在
+    final rows = ref.read(blockedKeywordsProvider).value ?? const [];
+    final existed = rows.any((r) => r.word == w);
+
+    final String message;
+    if (existed) {
+      // 已存在：走「更新」而不是「新增」。
+      // 用 update（UPDATE ... WHERE word = ...）只改 expiresAt，
+      // 保留原行的 createdAt；add 的 insertOnConflictUpdate 会整行覆盖，
+      // 创建时间会被重置成现在，所以这里不用它。
+      await ref.read(blockedKeywordsProvider.notifier).update(w, w, expiresAt);
+      message = '「$w」已在屏蔽列表，屏蔽时长已更新为：$durationText';
+    } else {
+      await ref
+          .read(blockedKeywordsProvider.notifier)
+          .add(w, expiresAt: expiresAt);
+      message = '已添加屏蔽词：$w（$durationText）';
+    }
+
+    // 通知外部：关弹层 + 弹提示（文案已组装好）
+    widget.onAdded(1, w, message);
   }
 
   @override
