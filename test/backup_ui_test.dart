@@ -41,7 +41,8 @@ AppBackup _sampleBackup() {
       ),
     ],
     plugins: const [],
-    blockedKeywords: const ['广告'],
+    // 屏蔽词已经改成"词面 + 可选过期时间"的对象（BackupBlockedKeywordEntry），老写法直接塞字符串会编译不过；不传 expiresAt 就是永久屏蔽
+    blockedKeywords: const [BackupBlockedKeywordEntry(word: '广告')],
   );
 }
 

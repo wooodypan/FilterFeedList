@@ -3,7 +3,9 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
 import 'package:filter_flow/core/db/app_database.dart';
@@ -72,7 +74,23 @@ class _TabBarHarness extends StatefulWidget {
   final List<FeedSource> sources;
   final void Function(int oldIndex, int newIndex) onReorder;
 
-  const _TabBarHarness({required this.sources, required this.onReorder});
+  /// 限制 Tab 栏宽度（测居中时用：宽度有限才滚得起来）。
+  /// 不传就是撑满可用宽度。
+  final double? width;
+
+  /// 初始选中第几个 Tab（用来验证"启动就恢复某个靠后的 Tab"）
+  final int initialIndex;
+
+  /// 控制器建好后回调出去，方便测试里模拟"从别处切 Tab"。
+  final ValueChanged<TabController>? onController;
+
+  const _TabBarHarness({
+    required this.sources,
+    required this.onReorder,
+    this.width,
+    this.initialIndex = 0,
+    this.onController,
+  });
 
   @override
   State<_TabBarHarness> createState() => _TabBarHarnessState();
@@ -85,7 +103,12 @@ class _TabBarHarnessState extends State<_TabBarHarness>
   @override
   void initState() {
     super.initState();
-    _controller = TabController(length: widget.sources.length, vsync: this);
+    _controller = TabController(
+      length: widget.sources.length,
+      initialIndex: widget.initialIndex,
+      vsync: this,
+    );
+    widget.onController?.call(_controller);
   }
 
   @override
@@ -97,10 +120,15 @@ class _TabBarHarnessState extends State<_TabBarHarness>
   @override
   Widget build(BuildContext context) {
     // 只挂 Tab 栏即可（它不依赖 TabBarView），避免为了凑长度写无用的子页
-    return FeedSourceTabBar(
+    final bar = FeedSourceTabBar(
       sources: widget.sources,
       controller: _controller,
       onReorder: widget.onReorder,
+    );
+    final width = widget.width;
+    if (width == null) return bar;
+    return Center(
+      child: SizedBox(width: width, child: bar),
     );
   }
 }
@@ -213,6 +241,154 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(reorders, isNotEmpty, reason: '拖动后应该回调 onReorder');
     expect(reorders.first.first, 0, reason: '拖动的是第一个 Tab');
+  });
+
+  group('选中的 Tab 自动居中', () {
+    // 12 个 Tab、Tab 栏只给 300 宽 → 必然要横向滚动才看得全
+    const tabNames = <String>[
+      '源一号',
+      '源二号',
+      '源三号',
+      '源四号',
+      '源五号',
+      '源六号',
+      '源七号',
+      '源八号',
+      '源九号',
+      '源十号',
+      '源甲号',
+      '源乙号',
+    ];
+
+    List<FeedSource> centeringSources() => [
+      for (final name in tabNames)
+        _FakeFeedSource(name, FeedSourceStorage.dataSource),
+    ];
+
+    /// Tab 栏可视区（视口）的矩形
+    Rect barRect(WidgetTester tester) =>
+        tester.getRect(find.byType(FeedSourceTabBar));
+
+    /// 某个 Tab **整项**的矩形（含左右各 16 的内边距），不是里面那行文字。
+    ///
+    /// 这里必须显式写 `skipOffstage: false`：finder 默认只找"当前画在可视区里"的东西，而 Tab 栏为了能定位屏幕外的项，把它们都提前搭出来了（见源码里的 cacheExtent），那些项在 finder 眼里属于 offstage，不加这个参数就找不到。
+    Rect tabRect(WidgetTester tester, String name) => tester.getRect(
+      find
+          .ancestor(
+            of: find.text(name, skipOffstage: false),
+            matching: find.byType(InkWell, skipOffstage: false),
+          )
+          .first,
+    );
+
+    Future<void> pumpBar(
+      WidgetTester tester,
+      List<FeedSource> sources, {
+      ValueChanged<TabController>? onController,
+      int initialIndex = 0,
+    }) async {
+      // 点击 Tab 会读全局设置（要不要振动），所以得有 ProviderScope；
+      // 顺手把 SharedPreferences 换成内存实现，不然读设置会卡在平台通道上。
+      TestWidgetsFlutterBinding.ensureInitialized();
+      SharedPreferences.setMockInitialValues({});
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MaterialApp(
+            home: Scaffold(
+              body: _TabBarHarness(
+                sources: sources,
+                width: 300,
+                initialIndex: initialIndex,
+                onController: onController,
+                onReorder: (_, _) {},
+              ),
+            ),
+          ),
+        ),
+      );
+      // 居中是在帧末回调里启动的滚动动画，要等它跑完才能断言位置
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('点击某个 Tab 后，它停在 Tab 栏正中间', (tester) async {
+      await pumpBar(tester, centeringSources());
+
+      // 「源三号」初始就在可视区里，点得到
+      await tester.tap(find.text('源三号'));
+      await tester.pumpAndSettle();
+
+      expect(
+        tabRect(tester, '源三号').center.dx,
+        closeTo(barRect(tester).center.dx, 1.0),
+        reason: '点击的 Tab 应该滚到正中间',
+      );
+    });
+
+    testWidgets('从别处切到屏幕外的 Tab（如"全部数据源"面板），也会居中', (tester) async {
+      late TabController controller;
+      await pumpBar(
+        tester,
+        centeringSources(),
+        onController: (c) => controller = c,
+      );
+
+      // 第 6 个初始完全在屏幕外（视口只看得到前 4 个）
+      expect(
+        tabRect(tester, '源六号').left,
+        greaterThan(barRect(tester).right),
+        reason: '前置条件：这时候它确实在屏幕外',
+      );
+
+      controller.animateTo(5);
+      await tester.pumpAndSettle();
+
+      expect(
+        tabRect(tester, '源六号').center.dx,
+        closeTo(barRect(tester).center.dx, 1.0),
+        reason: '屏幕外的 Tab 被选中后也要滚进正中间',
+      );
+    });
+
+    testWidgets('首次进入就选中靠后的 Tab 时，首帧也会居中', (tester) async {
+      await pumpBar(tester, centeringSources(), initialIndex: 5);
+
+      expect(
+        tabRect(tester, '源六号').center.dx,
+        closeTo(barRect(tester).center.dx, 1.0),
+        reason: '启动就恢复某个 Tab 时，它不能藏在屏幕外',
+      );
+    });
+
+    testWidgets('靠边的 Tab 滚到能滚的极限位置为止，不会崩也不会留空', (tester) async {
+      late TabController controller;
+      await pumpBar(
+        tester,
+        centeringSources(),
+        onController: (c) => controller = c,
+      );
+
+      // 最后一个 Tab 的右边没内容了，居中不了，只能贴右边缘
+      controller.animateTo(11);
+      await tester.pumpAndSettle();
+
+      final viewportRect = barRect(tester);
+      final lastTab = tabRect(tester, '源乙号');
+      expect(tester.takeException(), isNull);
+      expect(
+        lastTab.right,
+        closeTo(viewportRect.right, 1.0),
+        reason: '滚到底时最后一个 Tab 应该刚好贴住右边缘',
+      );
+      // 第一个 Tab 同理：滚到最左边时贴住左边缘（不能滚出负偏移）
+      controller.animateTo(0);
+      await tester.pumpAndSettle();
+      expect(
+        tabRect(tester, '源一号').left,
+        closeTo(viewportRect.left, 1.0),
+        reason: '滚到顶时第一个 Tab 应该刚好贴住左边缘',
+      );
+    });
   });
 
   test('老用户从 schema v2 升级到 v3：数据不丢、新列可用', () async {
