@@ -6,20 +6,34 @@ import '../core/db/app_database.dart';
 import '../core/error/feed_parse_exception.dart';
 import '../models/data_source_config.dart';
 import '../models/feed_article.dart';
+import '../models/field_mapping.dart';
+import '../models/translation_mode.dart';
 import 'generic_feed_parser.dart';
 import 'keyword_filter_engine.dart';
 import 'translator_service.dart';
 
-/// 信息流仓库：把"请求 -> 解析 -> 过滤"三步串起来，对外只给干净的文章列表。
+/// 信息流仓库：把"请求 -> 解析 -> 过滤 -> 翻译"四步串起来，对外只给干净的文章列表。
 ///
 /// 这是 UI 层唯一需要打交道的数据入口（Repository 模式），
-/// UI 不需要知道 dio、JSONPath、屏蔽词这些细节。
+/// UI 不需要知道 dio、JSONPath、屏蔽词、翻译这些细节。
 class FeedRepository {
   final Dio _dio;
   final AppDatabase _db;
   final TranslatorService _translator;
 
-  FeedRepository(this._dio, this._db, this._translator);
+  /// 读取"当前翻译模式"（原文替换 / 双语共存）的回调。
+  ///
+  /// 做成回调而不是直接传一个值，是因为翻译模式存在全局设置里、而且用户随时会改：
+  /// 每次真正抓取时现读一次，才能拿到最新值，同时又不会让这个仓库对象被重建
+  /// （重建会导致所有数据源被重新拉取一遍，见 core_providers.dart 的说明）。
+  final TranslationMode Function() _readTranslationMode;
+
+  FeedRepository(
+    this._dio,
+    this._db,
+    this._translator, {
+    required TranslationMode Function() translationMode,
+  }) : _readTranslationMode = translationMode;
 
   /// 拉取某个数据源某一页的信息流，并完成屏蔽词过滤。
   ///
@@ -77,82 +91,65 @@ class FeedRepository {
     final keywords = await _db.getActiveBlockedKeywords();
     var articles = KeywordFilterEngine(keywords).filter(parsed);
 
-    // 6) 翻译：仅当 summaryPath 是翻译标记（如 title.tttttranslate）时触发。
-    //    规则：标记里的字段名是要"翻译的源"（如 title），译文写回 summaryPath 对应的
-    //    summary 字段——标题保留原文，第二行摘要显示译文。
-    //    先过滤再做翻译，避免把要被屏蔽的标题也送去翻译，省一次请求。
-    final marker = TranslatorService.parseMarker(
-      config.fieldMapping?.summaryPath,
-    );
-    if (marker != null && articles.isNotEmpty) {
-      final res = await _translateField(
-        articles,
-        sourceField: marker.field,
-        targetField: 'summary',
-        from: marker.from,
-        to: marker.to,
-      );
-      if (res.isNotEmpty) {
-        articles = res;
-      }
+    // 6) 翻译：数据源的字段映射里给"标题""摘要"打开了"翻译"开关时，把对应内容翻成中文。
+    //    开关本身只决定"翻不翻"，译文是替换原文还是原文+译文一起显示，由全局
+    //    "翻译模式"（TranslationMode）决定。
+    //    先过滤再翻译，避免把马上要被屏蔽掉的内容也送去翻译，白花一次请求。
+    final mapping = config.fieldMapping;
+    if (mapping != null &&
+        (mapping.translateTitle || mapping.translateSummary) &&
+        articles.isNotEmpty) {
+      articles = await _translateArticles(articles, mapping);
     }
 
     return articles;
   }
 
-  /// 批量翻译：把 sourceField 的原文翻译后写回 targetField。
+  /// 按数据源的翻译开关，批量翻译标题 / 摘要。
   ///
-  /// 收集 sourceField 原文 → 交给 [TranslatorService] 一次性翻完 → 按原顺序写回 targetField。
-  /// 例如 summaryPath=title.tttttranslate 时：sourceField=title、targetField=summary，
-  /// 即"标题保留原文，摘要显示译文"。
-  Future<List<FeedArticle>> _translateField(
-    List<FeedArticle> articles, {
-    required String sourceField,
-    required String targetField,
-    required String from,
-    required String to,
-  }) async {
-    final originals = articles.map((a) => _readField(a, sourceField)).toList();
-    final translated = await _translator.translate(
-      originals,
-      from: from,
-      to: to,
-    );
-    if (translated.isEmpty) {
-      return [];
-    }
-    return [
-      for (var i = 0; i < articles.length; i++)
-        _writeField(articles[i], targetField, translated[i]),
+  /// 为什么要"一次请求翻两批"：标题和摘要是两批文本，而翻译接口本来就支持一次传多个，
+  /// 所以把它们拼成一个大数组发一次请求，拿到结果再按下标拆回去——
+  /// 这样每页文章只花一次翻译请求，而不是标题一次、摘要一次。
+  ///
+  /// 翻译失败（接口报错 / 断网 / 返回条数对不上）时【原样返回】，
+  /// 界面上继续显示原文，不会因为翻译服务挂了就整页报错。
+  Future<List<FeedArticle>> _translateArticles(
+    List<FeedArticle> articles,
+    FieldMapping mapping,
+  ) async {
+    final mode = _readTranslationMode();
+    final count = articles.length;
+
+    // 先取出两批原文（摘要为空时用空串，保证下标能一一对上）
+    final titles = articles.map((a) => a.title).toList();
+    final summaries = articles.map((a) => a.summary ?? '').toList();
+
+    // 只把打开了开关的那批文本拼进去（没打开的字段没必要送去翻译，白费流量）。
+    // 布局就是"先标题、后摘要"两段，下面按这个布局算摘要的起始下标。
+    final batch = <String>[
+      if (mapping.translateTitle) ...titles,
+      if (mapping.translateSummary) ...summaries,
     ];
-  }
 
-  /// 从文章里读出要翻译的字段（标记里写的 field 对应到 FeedArticle 的属性）。
-  static String _readField(FeedArticle a, String field) {
-    switch (field) {
-      case 'title':
-        return a.title;
-      case 'summary':
-        return a.summary ?? '';
-      case 'author':
-        return a.author ?? '';
-      default:
-        return '';
-    }
-  }
+    final translated = await _translator.translate(batch);
+    // 长度对不上就当作翻译失败（翻译失败时返回的是空数组），直接放弃这一轮翻译
+    if (translated.length != batch.length) return articles;
 
-  /// 把译文写回文章的对应字段（返回新对象，不改原对象）。
-  static FeedArticle _writeField(FeedArticle a, String field, String value) {
-    switch (field) {
-      case 'title':
-        return a.copyWith(title: value);
-      case 'summary':
-        return a.copyWith(summary: value);
-      case 'author':
-        return a.copyWith(author: value);
-      default:
-        return a;
-    }
+    // 摘要那批在数组里的起始下标：标题也开了开关时，前面正好隔着一整段标题
+    final summaryOffset = mapping.translateTitle ? count : 0;
+
+    return [
+      for (var i = 0; i < count; i++)
+        articles[i].copyWith(
+          // copyWith 收到 null 表示"这个字段不动"，所以没开开关的字段就传 null
+          title: mapping.translateTitle
+              ? mode.combine(titles[i], translated[i])
+              : null,
+          summary: mapping.translateSummary
+              ? mode.combine(summaries[i], translated[summaryOffset + i])
+              : null,
+        ),
+    ];
   }
 }
 

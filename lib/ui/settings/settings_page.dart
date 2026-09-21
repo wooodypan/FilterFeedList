@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../models/translation_mode.dart';
+import '../../providers/feed_list_provider.dart';
 import '../../providers/feed_settings_provider.dart';
 import '../../services/image_cache_manager.dart';
 
@@ -72,6 +74,18 @@ class SettingsPage extends ConsumerWidget {
             subtitle: Text('当前：${_themeModeLabel(settings.themeMode)}'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _pickThemeMode(context, ref, settings.themeMode),
+          ),
+          ListTile(
+            leading: const Icon(Icons.translate),
+            title: const Text('翻译模式'),
+            // 副标题说明当前模式 + 影响范围，用户不用点进去就能看懂这个开关管什么
+            subtitle: Text(
+              '当前：${_translationModeLabel(settings.translationMode)}'
+              '（作用于数据源里打开了"翻译"的标题 / 摘要）',
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () =>
+                _pickTranslationMode(context, ref, settings.translationMode),
           ),
           ListTile(
             leading: const Icon(Icons.backup),
@@ -172,6 +186,78 @@ class SettingsPage extends ConsumerWidget {
                       .read(feedSettingsProvider.notifier)
                       .setThemeMode(modes[i]);
                   Navigator.of(sheetContext).pop();
+                },
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 把翻译模式翻译成人话（给设置页副标题和弹层用）。
+  static String _translationModeLabel(TranslationMode mode) {
+    switch (mode) {
+      case TranslationMode.replace:
+        return '原文替换（只显示译文）';
+      case TranslationMode.bilingual:
+        return '双语共存（上原文、下译文）';
+    }
+  }
+
+  /// 弹出底部菜单让用户选翻译模式：原文替换 / 双语共存。
+  ///
+  /// 选中后除了存设置，还要把信息流 provider 作废：已经拉下来的文章里装的
+  /// 是按旧模式拼好的文字，不作废的话要等下次刷新才看得到新效果。
+  void _pickTranslationMode(
+    BuildContext context,
+    WidgetRef ref,
+    TranslationMode current,
+  ) {
+    // 选项顺序固定，和下面的图标一一对应
+    const modes = <TranslationMode>[
+      TranslationMode.replace,
+      TranslationMode.bilingual,
+    ];
+    const icons = <IconData>[
+      Icons.find_replace, // 原文替换：译文把原文换掉
+      Icons.view_agenda, // 双语共存：两条文字上下摞着
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              child: Row(
+                children: [
+                  Text('翻译模式', style: Theme.of(context).textTheme.titleMedium),
+                ],
+              ),
+            ),
+            // 两个选项平铺，当前选中的打勾
+            for (int i = 0; i < modes.length; i++)
+              ListTile(
+                leading: Icon(icons[i]),
+                title: Text(_translationModeLabel(modes[i])),
+                trailing: modes[i] == current ? const Icon(Icons.check) : null,
+                onTap: () async {
+                  // 先等设置真正写进 SharedPreferences：下面的作废会立刻触发重拉，
+                  // 必须保证重拉时读到的是新模式，否则会拿旧模式再拉一遍。
+                  await ref
+                      .read(feedSettingsProvider.notifier)
+                      .setTranslationMode(modes[i]);
+                  // 弹层可能已经被用户点别处关掉了，关之前先判断一下
+                  if (sheetContext.mounted) {
+                    Navigator.of(sheetContext).pop();
+                  }
+                  // 作废信息流：聚合流 + 所有单源 Tab，下次渲染时按新模式重新抓取
+                  ref.invalidate(feedAggregateProvider);
+                  ref.invalidate(feedTabProvider);
                 },
               ),
             const SizedBox(height: 8),

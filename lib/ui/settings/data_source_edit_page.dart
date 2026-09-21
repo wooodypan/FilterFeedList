@@ -47,6 +47,14 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
   // 是否启用"App 深链直达"（默认开启）
   bool _useAppDeepLink = true;
 
+  // 标题字段取到的原文，是否要翻成中文
+  bool _translateTitle = false;
+
+  // 摘要字段（summaryPath 取到的那段文字）是否要翻成中文。
+  // 注意它翻的是 summaryPath 指向的内容，不一定是 summary 字段本身：
+  // summaryPath 填 title 时，打开这个开关就是"把标题翻成中文，译文放进摘要"。
+  bool _translateSummary = false;
+
   // 动态 key-value 列表（headers / queryParams）
   final List<_KvRow> _headers = [];
   final List<_KvRow> _queryParams = [];
@@ -82,6 +90,8 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
       _publishTimeC.text = m.publishTimePath ?? '';
       _detailUrlPathC.text = m.detailUrlPath ?? '';
       _contentPathC.text = m.contentPath ?? '';
+      _translateTitle = m.translateTitle;
+      _translateSummary = m.translateSummary;
     }
     c.headers?.forEach((k, v) => _headers.add(_KvRow(k, v)));
     c.queryParams?.forEach((k, v) => _queryParams.add(_KvRow(k, v)));
@@ -125,6 +135,9 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
       contentPath: _detailMode == DetailRenderMode.native
           ? _opt(_contentPathC.text)
           : null,
+      // 两个"是否翻译"开关：只记录"翻不翻"，译文怎么展示由全局翻译模式决定
+      translateTitle: _translateTitle,
+      translateSummary: _translateSummary,
     );
 
     return DataSourceConfig(
@@ -258,11 +271,16 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
                 required: true,
                 validator: Validators.jsonPath,
               ),
-              _textField(
+              // 标题、摘要这两个字段支持"顺手翻译"：
+              // 打开右边开关后，取到的原文会被翻成中文，再按设置页选的翻译模式
+              // 决定是"替换原文"还是"原文在上、译文在下"。
+              _translatableField(
                 _titlePathC,
                 'titlePath（标题，如 title）',
                 required: true,
                 validator: Validators.jsonPath,
+                translate: _translateTitle,
+                onTranslateChanged: (v) => setState(() => _translateTitle = v),
               ),
               _textField(
                 _thumbPathC,
@@ -270,10 +288,13 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
                 required: true,
                 validator: Validators.jsonPath,
               ),
-              _textField(
+              _translatableField(
                 _summaryPathC,
                 'summaryPath（摘要，选填）',
                 validator: Validators.jsonPath,
+                translate: _translateSummary,
+                onTranslateChanged: (v) =>
+                    setState(() => _translateSummary = v),
               ),
               _textField(
                 _authorPathC,
@@ -394,6 +415,46 @@ class _DataSourceEditPageState extends ConsumerState<DataSourceEditPage> {
                 ? (v) => v == null || v.trim().isEmpty ? '该项必填' : null
                 : null),
       ),
+    );
+  }
+
+  /// 带"翻译"开关的字段输入框：左边是原来的路径输入框，右边竖排一个开关。
+  ///
+  /// 开关只表示"这个字段取到的原文要不要翻译"，译文怎么展示（替换原文 / 双语共存）
+  /// 由设置页的「翻译模式」统一决定，所以这里不用再选语言、选模式。
+  Widget _translatableField(
+    TextEditingController c,
+    String label, {
+    required bool translate,
+    required ValueChanged<bool> onTranslateChanged,
+    bool required = false,
+    String? Function(String?)? validator,
+  }) {
+    return Row(
+      // 顶部对齐：开关和输入框都从第一行开始排，看起来才不会一高一低
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 输入框吃掉剩余宽度，窄屏也不会把开关挤出去
+        Expanded(
+          child: _textField(c, label, required: required, validator: validator),
+        ),
+        Padding(
+          // 左边留一点缝，顶部往下挪几像素跟输入框里的文字对齐
+          padding: const EdgeInsets.only(left: 4, top: 6),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Switch(
+                // 开关本体只有 40 多像素高，缩一缩省点横向空间
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                value: translate,
+                onChanged: onTranslateChanged,
+              ),
+              Text('翻译', style: Theme.of(context).textTheme.labelSmall),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

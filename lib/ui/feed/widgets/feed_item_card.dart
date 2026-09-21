@@ -138,7 +138,9 @@ class _FeedItemCardState extends State<FeedItemCard> {
                         color: widget.isRead ? _dimmed(theme) : null,
                         fontWeight: FontWeight.normal, // 常规（非粗体）
                       ),
-                      maxLines: 2,
+                      // 翻译选了"双语共存"时标题里是"原文\n译文"两段，2 行根本装不下，
+                      // 含换行就给 4 行让译文露出来；没翻译的内容维持原来的 2 行。
+                      maxLines: widget.article.title.contains('\n') ? 4 : 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (widget.article.summary?.isNotEmpty == true) ...[
@@ -150,7 +152,10 @@ class _FeedItemCardState extends State<FeedItemCard> {
                           color: widget.isRead ? _dimmed(theme) : null,
                           fontWeight: FontWeight.normal, // 常规（非粗体）
                         ),
-                        maxLines: 2,
+                        // 同理：双语共存的摘要是两段文字，多给几行
+                        maxLines: widget.article.summary!.contains('\n')
+                            ? 4
+                            : 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],

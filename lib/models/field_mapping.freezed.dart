@@ -25,7 +25,16 @@ mixin _$FieldMapping {
  String? get publishTimePath;/// 相对路径：正文 HTML/纯文本（原生渲染详情时必填）
  String? get contentPath;/// 相对路径：详情页跳转链接（WebView 模式时必填）
  String? get detailUrlPath;/// 相对路径：唯一 id（去重/已读用）。缺省时用 title+thumb 做 md5
- String? get uniqueIdPath;
+ String? get uniqueIdPath;/// 是否把标题翻译成中文（译文怎么放由全局"翻译模式"决定）。
+///
+/// 打开后：[titlePath] 取到的原文会被送去翻译，然后再按模式拼回去——
+/// 原文替换就是"标题变成译文"，双语共存就是"标题 = 原文\n译文"。
+ bool get translateTitle;/// 是否把摘要翻译成中文。译文写回文章的 summary 字段。
+///
+/// 注意"摘要"指的是 [summaryPath] 取到的那段文字，它不一定来自 summary 字段：
+/// 比如 summaryPath 写 `title` 时，这段文字其实是标题原文，
+/// 打开本开关就等于"把标题翻成中文，译文放进摘要"。
+ bool get translateSummary;
 /// Create a copy of FieldMapping
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -38,16 +47,16 @@ $FieldMappingCopyWith<FieldMapping> get copyWith => _$FieldMappingCopyWithImpl<F
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FieldMapping&&(identical(other.listPath, listPath) || other.listPath == listPath)&&(identical(other.titlePath, titlePath) || other.titlePath == titlePath)&&(identical(other.thumbPath, thumbPath) || other.thumbPath == thumbPath)&&(identical(other.summaryPath, summaryPath) || other.summaryPath == summaryPath)&&(identical(other.authorPath, authorPath) || other.authorPath == authorPath)&&(identical(other.publishTimePath, publishTimePath) || other.publishTimePath == publishTimePath)&&(identical(other.contentPath, contentPath) || other.contentPath == contentPath)&&(identical(other.detailUrlPath, detailUrlPath) || other.detailUrlPath == detailUrlPath)&&(identical(other.uniqueIdPath, uniqueIdPath) || other.uniqueIdPath == uniqueIdPath));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FieldMapping&&(identical(other.listPath, listPath) || other.listPath == listPath)&&(identical(other.titlePath, titlePath) || other.titlePath == titlePath)&&(identical(other.thumbPath, thumbPath) || other.thumbPath == thumbPath)&&(identical(other.summaryPath, summaryPath) || other.summaryPath == summaryPath)&&(identical(other.authorPath, authorPath) || other.authorPath == authorPath)&&(identical(other.publishTimePath, publishTimePath) || other.publishTimePath == publishTimePath)&&(identical(other.contentPath, contentPath) || other.contentPath == contentPath)&&(identical(other.detailUrlPath, detailUrlPath) || other.detailUrlPath == detailUrlPath)&&(identical(other.uniqueIdPath, uniqueIdPath) || other.uniqueIdPath == uniqueIdPath)&&(identical(other.translateTitle, translateTitle) || other.translateTitle == translateTitle)&&(identical(other.translateSummary, translateSummary) || other.translateSummary == translateSummary));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,listPath,titlePath,thumbPath,summaryPath,authorPath,publishTimePath,contentPath,detailUrlPath,uniqueIdPath);
+int get hashCode => Object.hash(runtimeType,listPath,titlePath,thumbPath,summaryPath,authorPath,publishTimePath,contentPath,detailUrlPath,uniqueIdPath,translateTitle,translateSummary);
 
 @override
 String toString() {
-  return 'FieldMapping(listPath: $listPath, titlePath: $titlePath, thumbPath: $thumbPath, summaryPath: $summaryPath, authorPath: $authorPath, publishTimePath: $publishTimePath, contentPath: $contentPath, detailUrlPath: $detailUrlPath, uniqueIdPath: $uniqueIdPath)';
+  return 'FieldMapping(listPath: $listPath, titlePath: $titlePath, thumbPath: $thumbPath, summaryPath: $summaryPath, authorPath: $authorPath, publishTimePath: $publishTimePath, contentPath: $contentPath, detailUrlPath: $detailUrlPath, uniqueIdPath: $uniqueIdPath, translateTitle: $translateTitle, translateSummary: $translateSummary)';
 }
 
 
@@ -58,7 +67,7 @@ abstract mixin class $FieldMappingCopyWith<$Res>  {
   factory $FieldMappingCopyWith(FieldMapping value, $Res Function(FieldMapping) _then) = _$FieldMappingCopyWithImpl;
 @useResult
 $Res call({
- String listPath, String titlePath, String thumbPath, String? summaryPath, String? authorPath, String? publishTimePath, String? contentPath, String? detailUrlPath, String? uniqueIdPath
+ String listPath, String titlePath, String thumbPath, String? summaryPath, String? authorPath, String? publishTimePath, String? contentPath, String? detailUrlPath, String? uniqueIdPath, bool translateTitle, bool translateSummary
 });
 
 
@@ -75,7 +84,7 @@ class _$FieldMappingCopyWithImpl<$Res>
 
 /// Create a copy of FieldMapping
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? listPath = null,Object? titlePath = null,Object? thumbPath = null,Object? summaryPath = freezed,Object? authorPath = freezed,Object? publishTimePath = freezed,Object? contentPath = freezed,Object? detailUrlPath = freezed,Object? uniqueIdPath = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? listPath = null,Object? titlePath = null,Object? thumbPath = null,Object? summaryPath = freezed,Object? authorPath = freezed,Object? publishTimePath = freezed,Object? contentPath = freezed,Object? detailUrlPath = freezed,Object? uniqueIdPath = freezed,Object? translateTitle = null,Object? translateSummary = null,}) {
   return _then(FieldMapping(
 listPath: null == listPath ? _self.listPath : listPath // ignore: cast_nullable_to_non_nullable
 as String,titlePath: null == titlePath ? _self.titlePath : titlePath // ignore: cast_nullable_to_non_nullable
@@ -86,7 +95,9 @@ as String?,publishTimePath: freezed == publishTimePath ? _self.publishTimePath :
 as String?,contentPath: freezed == contentPath ? _self.contentPath : contentPath // ignore: cast_nullable_to_non_nullable
 as String?,detailUrlPath: freezed == detailUrlPath ? _self.detailUrlPath : detailUrlPath // ignore: cast_nullable_to_non_nullable
 as String?,uniqueIdPath: freezed == uniqueIdPath ? _self.uniqueIdPath : uniqueIdPath // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,translateTitle: null == translateTitle ? _self.translateTitle : translateTitle // ignore: cast_nullable_to_non_nullable
+as bool,translateSummary: null == translateSummary ? _self.translateSummary : translateSummary // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 
@@ -171,10 +182,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String listPath,  String titlePath,  String thumbPath,  String? summaryPath,  String? authorPath,  String? publishTimePath,  String? contentPath,  String? detailUrlPath,  String? uniqueIdPath)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String listPath,  String titlePath,  String thumbPath,  String? summaryPath,  String? authorPath,  String? publishTimePath,  String? contentPath,  String? detailUrlPath,  String? uniqueIdPath,  bool translateTitle,  bool translateSummary)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FieldMapping() when $default != null:
-return $default(_that.listPath,_that.titlePath,_that.thumbPath,_that.summaryPath,_that.authorPath,_that.publishTimePath,_that.contentPath,_that.detailUrlPath,_that.uniqueIdPath);case _:
+return $default(_that.listPath,_that.titlePath,_that.thumbPath,_that.summaryPath,_that.authorPath,_that.publishTimePath,_that.contentPath,_that.detailUrlPath,_that.uniqueIdPath,_that.translateTitle,_that.translateSummary);case _:
   return orElse();
 
 }
@@ -192,10 +203,10 @@ return $default(_that.listPath,_that.titlePath,_that.thumbPath,_that.summaryPath
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String listPath,  String titlePath,  String thumbPath,  String? summaryPath,  String? authorPath,  String? publishTimePath,  String? contentPath,  String? detailUrlPath,  String? uniqueIdPath)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String listPath,  String titlePath,  String thumbPath,  String? summaryPath,  String? authorPath,  String? publishTimePath,  String? contentPath,  String? detailUrlPath,  String? uniqueIdPath,  bool translateTitle,  bool translateSummary)  $default,) {final _that = this;
 switch (_that) {
 case _FieldMapping():
-return $default(_that.listPath,_that.titlePath,_that.thumbPath,_that.summaryPath,_that.authorPath,_that.publishTimePath,_that.contentPath,_that.detailUrlPath,_that.uniqueIdPath);case _:
+return $default(_that.listPath,_that.titlePath,_that.thumbPath,_that.summaryPath,_that.authorPath,_that.publishTimePath,_that.contentPath,_that.detailUrlPath,_that.uniqueIdPath,_that.translateTitle,_that.translateSummary);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -212,10 +223,10 @@ return $default(_that.listPath,_that.titlePath,_that.thumbPath,_that.summaryPath
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String listPath,  String titlePath,  String thumbPath,  String? summaryPath,  String? authorPath,  String? publishTimePath,  String? contentPath,  String? detailUrlPath,  String? uniqueIdPath)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String listPath,  String titlePath,  String thumbPath,  String? summaryPath,  String? authorPath,  String? publishTimePath,  String? contentPath,  String? detailUrlPath,  String? uniqueIdPath,  bool translateTitle,  bool translateSummary)?  $default,) {final _that = this;
 switch (_that) {
 case _FieldMapping() when $default != null:
-return $default(_that.listPath,_that.titlePath,_that.thumbPath,_that.summaryPath,_that.authorPath,_that.publishTimePath,_that.contentPath,_that.detailUrlPath,_that.uniqueIdPath);case _:
+return $default(_that.listPath,_that.titlePath,_that.thumbPath,_that.summaryPath,_that.authorPath,_that.publishTimePath,_that.contentPath,_that.detailUrlPath,_that.uniqueIdPath,_that.translateTitle,_that.translateSummary);case _:
   return null;
 
 }
@@ -227,7 +238,7 @@ return $default(_that.listPath,_that.titlePath,_that.thumbPath,_that.summaryPath
 @JsonSerializable()
 
 class _FieldMapping implements FieldMapping {
-  const _FieldMapping({required this.listPath, required this.titlePath, required this.thumbPath, this.summaryPath, this.authorPath, this.publishTimePath, this.contentPath, this.detailUrlPath, this.uniqueIdPath});
+  const _FieldMapping({required this.listPath, required this.titlePath, required this.thumbPath, this.summaryPath, this.authorPath, this.publishTimePath, this.contentPath, this.detailUrlPath, this.uniqueIdPath, this.translateTitle = false, this.translateSummary = false});
   factory _FieldMapping.fromJson(Map<String, dynamic> json) => _$FieldMappingFromJson(json);
 
 /// 定位数组的绝对路径（必填）。例如 "data.list"
@@ -248,6 +259,17 @@ class _FieldMapping implements FieldMapping {
 @override final  String? detailUrlPath;
 /// 相对路径：唯一 id（去重/已读用）。缺省时用 title+thumb 做 md5
 @override final  String? uniqueIdPath;
+/// 是否把标题翻译成中文（译文怎么放由全局"翻译模式"决定）。
+///
+/// 打开后：[titlePath] 取到的原文会被送去翻译，然后再按模式拼回去——
+/// 原文替换就是"标题变成译文"，双语共存就是"标题 = 原文\n译文"。
+@override@JsonKey() final  bool translateTitle;
+/// 是否把摘要翻译成中文。译文写回文章的 summary 字段。
+///
+/// 注意"摘要"指的是 [summaryPath] 取到的那段文字，它不一定来自 summary 字段：
+/// 比如 summaryPath 写 `title` 时，这段文字其实是标题原文，
+/// 打开本开关就等于"把标题翻成中文，译文放进摘要"。
+@override@JsonKey() final  bool translateSummary;
 
 /// Create a copy of FieldMapping
 /// with the given fields replaced by the non-null parameter values.
@@ -262,16 +284,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FieldMapping&&(identical(other.listPath, listPath) || other.listPath == listPath)&&(identical(other.titlePath, titlePath) || other.titlePath == titlePath)&&(identical(other.thumbPath, thumbPath) || other.thumbPath == thumbPath)&&(identical(other.summaryPath, summaryPath) || other.summaryPath == summaryPath)&&(identical(other.authorPath, authorPath) || other.authorPath == authorPath)&&(identical(other.publishTimePath, publishTimePath) || other.publishTimePath == publishTimePath)&&(identical(other.contentPath, contentPath) || other.contentPath == contentPath)&&(identical(other.detailUrlPath, detailUrlPath) || other.detailUrlPath == detailUrlPath)&&(identical(other.uniqueIdPath, uniqueIdPath) || other.uniqueIdPath == uniqueIdPath));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FieldMapping&&(identical(other.listPath, listPath) || other.listPath == listPath)&&(identical(other.titlePath, titlePath) || other.titlePath == titlePath)&&(identical(other.thumbPath, thumbPath) || other.thumbPath == thumbPath)&&(identical(other.summaryPath, summaryPath) || other.summaryPath == summaryPath)&&(identical(other.authorPath, authorPath) || other.authorPath == authorPath)&&(identical(other.publishTimePath, publishTimePath) || other.publishTimePath == publishTimePath)&&(identical(other.contentPath, contentPath) || other.contentPath == contentPath)&&(identical(other.detailUrlPath, detailUrlPath) || other.detailUrlPath == detailUrlPath)&&(identical(other.uniqueIdPath, uniqueIdPath) || other.uniqueIdPath == uniqueIdPath)&&(identical(other.translateTitle, translateTitle) || other.translateTitle == translateTitle)&&(identical(other.translateSummary, translateSummary) || other.translateSummary == translateSummary));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,listPath,titlePath,thumbPath,summaryPath,authorPath,publishTimePath,contentPath,detailUrlPath,uniqueIdPath);
+int get hashCode => Object.hash(runtimeType,listPath,titlePath,thumbPath,summaryPath,authorPath,publishTimePath,contentPath,detailUrlPath,uniqueIdPath,translateTitle,translateSummary);
 
 @override
 String toString() {
-  return 'FieldMapping(listPath: $listPath, titlePath: $titlePath, thumbPath: $thumbPath, summaryPath: $summaryPath, authorPath: $authorPath, publishTimePath: $publishTimePath, contentPath: $contentPath, detailUrlPath: $detailUrlPath, uniqueIdPath: $uniqueIdPath)';
+  return 'FieldMapping(listPath: $listPath, titlePath: $titlePath, thumbPath: $thumbPath, summaryPath: $summaryPath, authorPath: $authorPath, publishTimePath: $publishTimePath, contentPath: $contentPath, detailUrlPath: $detailUrlPath, uniqueIdPath: $uniqueIdPath, translateTitle: $translateTitle, translateSummary: $translateSummary)';
 }
 
 
@@ -282,7 +304,7 @@ abstract mixin class _$FieldMappingCopyWith<$Res> implements $FieldMappingCopyWi
   factory _$FieldMappingCopyWith(_FieldMapping value, $Res Function(_FieldMapping) _then) = __$FieldMappingCopyWithImpl;
 @override @useResult
 $Res call({
- String listPath, String titlePath, String thumbPath, String? summaryPath, String? authorPath, String? publishTimePath, String? contentPath, String? detailUrlPath, String? uniqueIdPath
+ String listPath, String titlePath, String thumbPath, String? summaryPath, String? authorPath, String? publishTimePath, String? contentPath, String? detailUrlPath, String? uniqueIdPath, bool translateTitle, bool translateSummary
 });
 
 
@@ -299,7 +321,7 @@ class __$FieldMappingCopyWithImpl<$Res>
 
 /// Create a copy of FieldMapping
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? listPath = null,Object? titlePath = null,Object? thumbPath = null,Object? summaryPath = freezed,Object? authorPath = freezed,Object? publishTimePath = freezed,Object? contentPath = freezed,Object? detailUrlPath = freezed,Object? uniqueIdPath = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? listPath = null,Object? titlePath = null,Object? thumbPath = null,Object? summaryPath = freezed,Object? authorPath = freezed,Object? publishTimePath = freezed,Object? contentPath = freezed,Object? detailUrlPath = freezed,Object? uniqueIdPath = freezed,Object? translateTitle = null,Object? translateSummary = null,}) {
   return _then(_FieldMapping(
 listPath: null == listPath ? _self.listPath : listPath // ignore: cast_nullable_to_non_nullable
 as String,titlePath: null == titlePath ? _self.titlePath : titlePath // ignore: cast_nullable_to_non_nullable
@@ -310,7 +332,9 @@ as String?,publishTimePath: freezed == publishTimePath ? _self.publishTimePath :
 as String?,contentPath: freezed == contentPath ? _self.contentPath : contentPath // ignore: cast_nullable_to_non_nullable
 as String?,detailUrlPath: freezed == detailUrlPath ? _self.detailUrlPath : detailUrlPath // ignore: cast_nullable_to_non_nullable
 as String?,uniqueIdPath: freezed == uniqueIdPath ? _self.uniqueIdPath : uniqueIdPath // ignore: cast_nullable_to_non_nullable
-as String?,
+as String?,translateTitle: null == translateTitle ? _self.translateTitle : translateTitle // ignore: cast_nullable_to_non_nullable
+as bool,translateSummary: null == translateSummary ? _self.translateSummary : translateSummary // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

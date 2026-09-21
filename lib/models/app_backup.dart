@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:filter_flow/models/data_source_config.dart';
+import 'package:filter_flow/models/translation_mode.dart';
 import 'package:filter_flow/plugin/models/installed_plugin.dart';
 import 'package:filter_flow/plugin/models/plugin_manifest.dart';
 import 'package:filter_flow/providers/feed_settings_provider.dart';
@@ -36,6 +37,23 @@ ThemeMode _decodeThemeMode(Object? raw) {
     }
   }
   return ThemeMode.system;
+}
+
+/// 把备份里的翻译模式下标还原成 [TranslationMode]。
+///
+/// 存的是 `TranslationMode.index`（replace=0 / bilingual=1）。
+/// 同样按下标显式映射，避免枚举顺序变动导致"双语共存被读成原文替换"。
+/// 非法值或老备份没这个字段 → 双语共存（与设置里的默认值一致）。
+TranslationMode _decodeTranslationMode(Object? raw) {
+  if (raw is int) {
+    switch (raw) {
+      case 0:
+        return TranslationMode.replace;
+      case 1:
+        return TranslationMode.bilingual;
+    }
+  }
+  return TranslationMode.bilingual;
 }
 
 /// 备份里的一条数据源：配置本体 + 它在信息流顶部 Tab 里的排序序号。
@@ -253,6 +271,8 @@ class AppBackup {
       'themeColor': settings.themeColor.toARGB32(),
       // 外观模式：存枚举下标（system=0 / light=1 / dark=2）
       'themeMode': settings.themeMode.index,
+      // 翻译模式：同样存枚举下标（replace=0 / bilingual=1）
+      'translationMode': settings.translationMode.index,
     },
     'dataSources': dataSources.map((e) => e.toJson()).toList(),
     'plugins': plugins.map((e) => e.toJson()).toList(),
@@ -325,6 +345,10 @@ class AppBackup {
             // 这里也按下标显式映射，不直接 ThemeMode.values[i]，
             // 避免枚举顺序变动导致"深色被读成浅色"这类错位。
             themeMode: _decodeThemeMode(settingsRaw['themeMode']),
+            // 翻译模式：老备份没有这个字段时用"双语共存"（与设置默认值一致）
+            translationMode: _decodeTranslationMode(
+              settingsRaw['translationMode'],
+            ),
           )
         : const FeedSettings();
 

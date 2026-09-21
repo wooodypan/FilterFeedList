@@ -31,36 +31,6 @@ class _FakeTranslateAdapter implements HttpClientAdapter {
 }
 
 void main() {
-  group('TranslatorService.parseMarker', () {
-    test('title.tttttranslate → 翻译 title，默认 auto→zh-CN', () {
-      final m = TranslatorService.parseMarker('title.tttttranslate');
-      expect(m, isNotNull);
-      expect(m!.field, 'title');
-      expect(m.from, 'auto');
-      expect(m.to, 'zh-CN');
-    });
-
-    test('可显式指定 源语言.目标语言', () {
-      final m = TranslatorService.parseMarker('title.tttttranslate.en.zh-CN');
-      expect(m, isNotNull);
-      expect(m!.field, 'title');
-      expect(m.from, 'en');
-      expect(m.to, 'zh-CN');
-    });
-
-    test('字段名本身含点也能正确切分（如 data.title）', () {
-      final m = TranslatorService.parseMarker('data.title.tttttranslate');
-      expect(m, isNotNull);
-      expect(m!.field, 'data.title');
-    });
-
-    test('普通 JSONPath 不是标记 → 返回 null', () {
-      expect(TranslatorService.parseMarker('title'), isNull);
-      expect(TranslatorService.parseMarker(null), isNull);
-      expect(TranslatorService.parseMarker(''), isNull);
-    });
-  });
-
   group('TranslatorService.translate', () {
     test('批量翻译并按原顺序回填，空文本保持空', () async {
       final dio = Dio()..httpClientAdapter = _FakeTranslateAdapter();

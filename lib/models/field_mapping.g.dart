@@ -17,6 +17,8 @@ _FieldMapping _$FieldMappingFromJson(Map<String, dynamic> json) =>
       contentPath: json['contentPath'] as String?,
       detailUrlPath: json['detailUrlPath'] as String?,
       uniqueIdPath: json['uniqueIdPath'] as String?,
+      translateTitle: json['translateTitle'] as bool? ?? false,
+      translateSummary: json['translateSummary'] as bool? ?? false,
     );
 
 Map<String, dynamic> _$FieldMappingToJson(_FieldMapping instance) =>
@@ -30,4 +32,6 @@ Map<String, dynamic> _$FieldMappingToJson(_FieldMapping instance) =>
       'contentPath': instance.contentPath,
       'detailUrlPath': instance.detailUrlPath,
       'uniqueIdPath': instance.uniqueIdPath,
+      'translateTitle': instance.translateTitle,
+      'translateSummary': instance.translateSummary,
     };

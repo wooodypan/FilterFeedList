@@ -6,21 +6,15 @@ import 'package:dio/io.dart'; // IOHttpClientAdapter：用于给翻译请求单�
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // 从 .env.production 读取密钥，避免硬编码泄露
 
-/// 标题批量翻译服务。
+/// 批量翻译服务。
 ///
-/// 背景：用户给数据源的 [FieldMapping] 里把 summaryPath 写成 `title.tttttranslate`，
-/// 表示"把每条文章的 title 字段批量翻译成中文"。翻译走 Google 翻译的内部接口
-/// （Chrome 扩展同款，请求/响应格式见项目里的 tmp/translate.sh）。
+/// 由 FeedRepository 在抓到一页文章后调用：数据源的字段映射里给"标题""摘要"
+/// 打开了"翻译"开关，就把对应内容批量翻成中文（译文怎么展示由全局的
+/// `TranslationMode` 决定，是替换原文还是原文+译文一起显示）。
 ///
-/// 标记写法（写在某个路径字段里，token 之前是"要翻译的字段名"）：
-///   - `title.tttttranslate`           → 翻译 title 字段，自动检测源语言 → 简体中文
-///   - `title.tttttranslate.en.zh-CN`  → 显式指定 英 → 简体中文
-///   - `summary.tttttranslate`         → 翻译 summary 字段
-/// token 之后若还有两段，就是 源语言.目标语言。
+/// 翻译走 Google 翻译的内部接口（Chrome 扩展同款，请求/响应格式见项目里的 tmp/translate.sh），
+/// 默认"自动检测源语言 → 简体中文"。
 class TranslatorService {
-  /// 翻译标记的关键字：路径里出现它，就表示"这个字段要翻译"。
-  static const String _translateToken = 'tttttranslate';
-
   /// 翻译接口地址（Google 翻译内部接口，Chrome 扩展同款）。
   static const String _endpoint =
       'https://translate-pa.googleapis.com/v1/translateHtml';
@@ -38,10 +32,16 @@ class TranslatorService {
   ///
   /// 放到 getter 里是因为密钥在 app 启动时（main.dart 的 dotenv.load）才注入，
   /// 不能在类加载阶段就用 const 写死。
-  static String get apiKey =>
-      (dotenv.env['TRANSLATOR_API_KEY']?.isNotEmpty == true)
-      ? dotenv.env['TRANSLATOR_API_KEY']!
-      : _fallbackApiKey;
+  ///
+  /// 先判断 `isInitialized` 再读 `env` 是很关键的：dotenv 没 load 过时，
+  /// `env` getter 会直接抛 NotInitializedError，而翻译接口的错误处理是"失败就回退原文"，
+  /// 于是"没加载配置"会表现成"翻译静默不生效"（单元测试里就是这样，很难查）。
+  /// 这里干脆先问一句，没初始化就老老实实用兜底值。
+  static String get apiKey {
+    if (!dotenv.isInitialized) return _fallbackApiKey;
+    final key = dotenv.env['TRANSLATOR_API_KEY'];
+    return (key != null && key.isNotEmpty) ? key : _fallbackApiKey;
+  }
 
   /// 默认的本机 HTTP 代理地址。
   ///
@@ -96,30 +96,6 @@ class TranslatorService {
       },
     );
     return dio;
-  }
-
-  /// 解析翻译标记。
-  ///
-  /// 返回 null 表示这个路径不是翻译标记（普通 JSONPath，无需翻译）；
-  /// 否则返回要翻译的字段名 + 源语言 + 目标语言。
-  static ({String field, String from, String to})? parseMarker(String? path) {
-    if (path == null || path.isEmpty) return null;
-    final parts = path.split('.');
-    final idx = parts.indexOf(_translateToken);
-    if (idx == -1) return null;
-
-    // token 之后如果还有 源语言.目标语言 两段，就显式指定；否则用默认 auto→zh-CN
-    String from = 'auto';
-    String to = 'zh-CN';
-    if (parts.length - idx - 1 >= 2) {
-      from = parts[idx + 1];
-      to = parts[idx + 2];
-    }
-
-    // token 之前拼回字段路径（字段本身可能含点，例如 data.title）
-    final field = parts.sublist(0, idx).join('.');
-    if (field.isEmpty) return null;
-    return (field: field, from: from, to: to);
   }
 
   /// 批量翻译一组文本。

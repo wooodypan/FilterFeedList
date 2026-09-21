@@ -11,6 +11,7 @@ import '../plugin/plugin_repository.dart';
 import '../services/feed_repository.dart';
 import '../services/rss_feed_repository.dart';
 import '../services/translator_service.dart';
+import 'feed_settings_provider.dart';
 
 /// 全局数据库实例。
 /// 注意：main.dart 里会用 overrideWithValue 把它替换成"已初始化并完成种子数据"的同一个实例，
@@ -20,7 +21,7 @@ final appDatabaseProvider = Provider<AppDatabase>((ref) => AppDatabase());
 /// 全局 Dio 实例（统一超时/日志）。
 final dioProvider = Provider<Dio>((ref) => DioClient.create());
 
-/// 标题批量翻译服务（summaryPath 写成 title.tttttranslate 等标记时启用）。
+/// 批量翻译服务（数据源里给标题 / 摘要打开了"翻译"开关时启用）。
 /// 单独挂载本机 HTTP 代理（defaultProxyUrl），只影响翻译请求，不波及 RSS / 插件下载。
 final translatorServiceProvider = Provider<TranslatorService>(
   (ref) => TranslatorService(
@@ -30,11 +31,20 @@ final translatorServiceProvider = Provider<TranslatorService>(
 );
 
 /// 信息流仓库：组合 dio + 数据库 + 翻译服务（JSONPath 声明式数据源用）。
+///
+/// 翻译模式（原文替换 / 双语共存）故意用"每次抓取时现读一次"的方式注入，而不是
+/// `ref.watch(feedSettingsProvider.select(...))`，原因有两个：
+/// 1. watch 会让设置一变就重建整个仓库 → 所有数据源立刻重新拉取一遍。
+///    翻译模式改了确实该重拉，但其它设置（字号、主题色……）不该跟着遭殃，
+///    所以刷新时机交给设置页自己控制（见 settings_page.dart 的 _pickTranslationMode）。
+/// 2. FeedSettings 是启动时异步从 SharedPreferences 读出来的：watch 的话冷启动会
+///    先用默认值拉一轮、读到真实值后再拉一轮，翻译接口被白调两次。
 final feedRepositoryProvider = Provider<FeedRepository>(
   (ref) => FeedRepository(
     ref.watch(dioProvider),
     ref.watch(appDatabaseProvider),
     ref.watch(translatorServiceProvider),
+    translationMode: () => ref.read(feedSettingsProvider).translationMode,
   ),
 );
 

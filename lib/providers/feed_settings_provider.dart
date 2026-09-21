@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/translation_mode.dart';
 import '../services/image_cache_manager.dart';
 
 /// 全局阅读设置。
@@ -26,6 +27,12 @@ class FeedSettings {
   /// 纯体验增强，关掉后完全静默。
   final bool hapticFeedback;
 
+  /// 翻译模式：数据源里打开了"翻译"开关的字段，译文是覆盖原文还是和原文一起显示。
+  ///
+  /// 默认 [TranslationMode.bilingual]（原文在上、译文在下）：译文可能有误差，
+  /// 留着原文能对照着看，比直接替换掉原文更稳妥。
+  final TranslationMode translationMode;
+
   /// 主题色：App 的主色调（默认青绿，和改造前写死的 Colors.teal 一致）。
   ///
   /// 它不是"某一个按钮的颜色"，而是交给 Material3 的 colorSchemeSeed：
@@ -45,6 +52,7 @@ class FeedSettings {
     this.fontScale = 1.0,
     this.imageCacheDays = FeedImageCacheManager.defaultDays,
     this.hapticFeedback = true,
+    this.translationMode = TranslationMode.bilingual,
     this.themeColor = Colors.teal,
     this.themeMode = ThemeMode.system,
   });
@@ -55,6 +63,7 @@ class FeedSettings {
     double? fontScale,
     int? imageCacheDays,
     bool? hapticFeedback,
+    TranslationMode? translationMode,
     Color? themeColor,
     ThemeMode? themeMode,
   }) {
@@ -64,6 +73,7 @@ class FeedSettings {
       fontScale: fontScale ?? this.fontScale,
       imageCacheDays: imageCacheDays ?? this.imageCacheDays,
       hapticFeedback: hapticFeedback ?? this.hapticFeedback,
+      translationMode: translationMode ?? this.translationMode,
       themeColor: themeColor ?? this.themeColor,
       themeMode: themeMode ?? this.themeMode,
     );
@@ -85,6 +95,7 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
   static const _kShowThumb = 'show_thumb';
   static const _kFontScale = 'font_scale';
   static const _kHapticFeedback = 'haptic_feedback';
+  static const _kTranslationMode = 'translation_mode';
   static const _kThemeColor = 'theme_color';
   static const _kThemeMode = 'theme_mode';
   // 图片缓存天数的 key 直接用缓存管理器里定义的常量，两边共用一份
@@ -101,6 +112,9 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
           prefs.getInt(_kImageCacheDays) ?? FeedImageCacheManager.defaultDays,
       // 振动反馈默认开：老用户没存过这个 key，首次升级后也能享受新功能
       hapticFeedback: prefs.getBool(_kHapticFeedback) ?? true,
+      // 翻译模式：存的是枚举下标（0=原文替换，1=双语共存）。
+      // 老用户没存过 → 默认双语共存。
+      translationMode: _decodeTranslationMode(prefs.getInt(_kTranslationMode)),
       // 主题色：存的是 Color 的整数值（0xAARRGGBB）。老版本没存过就用默认青绿。
       // 顺手把透明通道抹掉（强制不透明），避免异常数据导致整套配色发灰。
       themeColor: _decodeColor(prefs.getInt(_kThemeColor)),
@@ -144,6 +158,17 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
     state = state.copyWith(hapticFeedback: v);
   }
 
+  /// 设置翻译模式（原文替换 / 双语共存）。
+  ///
+  /// 注意：这里只负责改设置。已经拉下来的文章里装的还是按旧模式拼好的文字，
+  /// 要看到新效果得让信息流重新拉取——这一步由设置页在改完之后主动作废
+  /// 信息流 provider 来完成（见 settings_page.dart 的 _pickTranslationMode）。
+  Future<void> setTranslationMode(TranslationMode v) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_kTranslationMode, v.index);
+    state = state.copyWith(translationMode: v);
+  }
+
   /// 设置主题色（立即生效：[MyApp] 会把这个值作为 colorSchemeSeed 重建整套配色）。
   Future<void> setThemeColor(Color v) async {
     final prefs = await SharedPreferences.getInstance();
@@ -167,6 +192,7 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
     await prefs.setDouble(_kFontScale, settings.fontScale);
     await prefs.setInt(_kImageCacheDays, settings.imageCacheDays);
     await prefs.setBool(_kHapticFeedback, settings.hapticFeedback);
+    await prefs.setInt(_kTranslationMode, settings.translationMode.index);
     await prefs.setInt(_kThemeColor, settings.themeColor.toARGB32());
     await prefs.setInt(_kThemeMode, settings.themeMode.index);
     state = settings;
@@ -180,6 +206,22 @@ class FeedSettingsNotifier extends StateNotifier<FeedSettings> {
   static Color _decodeColor(int? value) {
     if (value == null) return Colors.teal;
     return Color(0xFF000000 | (value & 0x00FFFFFF));
+  }
+
+  /// 把存进 SharedPreferences 的整数还原成 [TranslationMode]。
+  ///
+  /// 和 [_decodeThemeMode] 一个套路：按下标显式映射，不用 `values[i]`，
+  /// 免得以后枚举顺序调整（或加新值）后老数据被读成别的模式。
+  /// 没存过（老用户）或数值不合法 → 双语共存。
+  static TranslationMode _decodeTranslationMode(int? index) {
+    switch (index) {
+      case 0:
+        return TranslationMode.replace;
+      case 1:
+        return TranslationMode.bilingual;
+      default:
+        return TranslationMode.bilingual;
+    }
   }
 
   /// 把存进 SharedPreferences 的整数还原成 [ThemeMode]。
